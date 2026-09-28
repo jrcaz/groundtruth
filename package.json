@@ -16,9 +16,31 @@
     "node": ">=18"
   },
   "bin": {
-    "prove": "./bin/prove.js"
+    "prove": "./dist/bin/prove.js"
   },
-  "files": ["bin/", "src/", "templates/", "README.md", "LICENSE"],
-  "scripts": {"test": "node --test"},
-  "keywords": ["prove", "verification", "testing", "agent-skills", "cli"]
+  "files": [
+    "dist/bin/",
+    "dist/src/",
+    "templates/",
+    "README.md",
+    "LICENSE"
+  ],
+  "scripts": {
+    "clean": "node -e \"require('node:fs').rmSync('dist', { recursive: true, force: true })\"",
+    "build": "npm run clean && tsc -p tsconfig.json",
+    "typecheck": "tsc --noEmit -p tsconfig.json",
+    "prepare": "npm run build",
+    "test": "npm run build && cd dist && node --test"
+  },
+  "keywords": [
+    "prove",
+    "verification",
+    "testing",
+    "agent-skills",
+    "cli"
+  ],
+  "devDependencies": {
+    "@types/node": "18.19.130",
+    "typescript": "7.0.2"
+  }
 }

@@ -67,6 +67,8 @@ Run the commands from the target project's root. With the current GitHub install
 
 Prove looks at repository files and package metadata. It recognizes common JavaScript and TypeScript frameworks, Python frameworks, Flutter and React Native projects, Tauri, Go modules, and Rust crates. It also looks for test and browser tools such as Playwright, Cypress, Vitest, Jest, pytest, Maestro, and Appium, plus npm scripts that may be useful verification commands.
 
+In a monorepo, Prove also reads the workspaces declared in `package.json` (npm and Yarn) or `pnpm-workspace.yaml`, and includes their dependencies and test configuration in detection. It lists the workspaces it found in `.prove/PROJECT.md`.
+
 Detection is a starting point, not a test of whether a tool is installed or configured correctly. Prove does not install dependencies, execute project scripts, or contact production services. Review `.prove/PROJECT.md` and correct anything the repository metadata cannot tell it.
 
 ## Safe updates
@@ -75,15 +77,28 @@ Detection is a starting point, not a test of whether a tool is installed or conf
 - Prove marks the section it owns in `AGENTS.md` and `CLAUDE.md`. Text outside those markers is left unchanged.
 - `update` refreshes only shared skills and the contract template whose contents still match the last Prove-managed version. It preserves locally edited or unrecognized files.
 - `update` never changes `.prove/PROJECT.md` or real files in `.prove/contracts/`.
+- `init` and `update` check every file before writing. If a write still fails, for example because of a permission error, they undo the changes already made, so the project is left as it was.
+- If `CLAUDE.md` is a symbolic link to `AGENTS.md` (or another file in the project), Prove edits the target once and leaves the link in place. It refuses links that point outside the project or to a missing file.
+- Prove refuses to write through any other symbolic link, such as a linked `.claude/` directory, because the change would land outside the project.
+- If the Prove markers in `AGENTS.md` or `CLAUDE.md` are unpaired, repeated, or out of order, Prove stops without changing anything and `doctor` reports the file as invalid.
+- The Prove section uses the same line endings (LF or CRLF) as the file it is added to.
 
 ## Development
 
+Prove is written in TypeScript and compiles to `dist/` with `tsc`. You need Node.js 18 or later.
+
 ```sh
-npm test
-npm pack --dry-run
+npm install          # installs TypeScript and builds dist/ through the prepare script
+npm run typecheck    # type-checks src/, bin/, and tests/ without writing files
+npm test             # rebuilds dist/ and runs the compiled tests
+npm pack --dry-run   # lists the files that would be published
 ```
 
-The package exposes the `prove` executable through `bin/prove.js`. Its package name is `prove-starter-cli`; change the `name` field in `package.json` if you publish it under another npm name or scope.
+Source lives in `src/`, the executable entry point is `bin/prove.ts`, and tests are in `tests/`. The published package contains only the compiled `dist/bin/` and `dist/src/` files plus `templates/`. When the CLI runs from GitHub with `npx`, npm runs the `prepare` script, which builds `dist/` before the command starts.
+
+The tests use only Node's built-in test runner and temporary directories. They don't touch the network. CI runs them on Node 18, 20, 22 and 24 on Linux, and on Node 22 on macOS and Windows.
+
+The package exposes the `prove` executable through `dist/bin/prove.js`. Its package name is `prove-starter-cli`; change the `name` field in `package.json` if you publish it under another npm name or scope.
 
 ## Contributing
 

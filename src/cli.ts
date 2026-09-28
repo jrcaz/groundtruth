@@ -1,9 +1,9 @@
 import { readFileSync } from "node:fs";
-import { fileURLToPath } from "node:url";
 import path from "node:path";
 import { doctorProject, initProject, updateProject } from "./commands.js";
+import { PACKAGE_ROOT } from "./constants.js";
 
-const packageJson = JSON.parse(readFileSync(path.resolve(path.dirname(fileURLToPath(import.meta.url)), "../package.json"), "utf8"));
+const packageJson = JSON.parse(readFileSync(path.join(PACKAGE_ROOT, "package.json"), "utf8")) as { version: string };
 
 const help = `Prove CLI ${packageJson.version}
 
@@ -17,7 +17,7 @@ Commands:
   --help    Show this help
   --version Show the installed version`;
 
-export async function main(args) {
+export async function main(args: readonly string[]): Promise<void> {
   const [command] = args;
   if (!command || command === "--help" || command === "-h" || command === "help") {
     console.log(help);

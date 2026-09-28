@@ -7,22 +7,7 @@ import { initProject, updateProject, doctorProject } from "../src/commands.js";
 import { POLICY_END, POLICY_START, MANIFEST_PATH, MANAGED_CONTENT } from "../src/constants.js";
 import { hash } from "../src/manifest.js";
 import { packageContent } from "../src/content.js";
-
-function temporaryProject() {
-  const cwd = fs.mkdtempSync(path.join(os.tmpdir(), "prove-cli-test-"));
-  return {
-    cwd,
-    clean: () => fs.rmSync(cwd, { recursive: true, force: true }),
-    put(relativePath, content) {
-      const target = path.join(cwd, relativePath);
-      fs.mkdirSync(path.dirname(target), { recursive: true });
-      fs.writeFileSync(target, content);
-    },
-    get(relativePath) {
-      return fs.readFileSync(path.join(cwd, relativePath), "utf8");
-    }
-  };
-}
+import { symlinkOrSkip, temporaryProject } from "./helpers.js";
 
 test("init detects tooling and preserves existing guide content", (t) => {
   const project = temporaryProject();
@@ -35,7 +20,7 @@ test("init detects tooling and preserves existing guide content", (t) => {
   project.put("AGENTS.md", "# Existing instructions\n\nKeep this text.\n");
   project.put("CLAUDE.md", "# Claude notes\n");
 
-  const messages = [];
+  const messages: string[] = [];
   const result = initProject({ cwd: project.cwd, log: (message) => messages.push(message) });
   assert.deepEqual(result.detection.frameworks, ["Next.js"]);
   assert.deepEqual(result.detection.verificationTools, ["Playwright", "Vitest"]);
@@ -92,7 +77,7 @@ test("update leaves customized managed content alone", (t) => {
   project.put(skillPath, edited);
   const outcomes = updateProject({ cwd: project.cwd, log: () => {} });
   assert.equal(project.get(skillPath), edited);
-  assert.equal(outcomes.find(({ path: itemPath }) => itemPath === skillPath).status, "preserved-customized");
+  assert.equal(outcomes.find(({ path: itemPath }) => itemPath === skillPath)?.status, "preserved-customized");
 });
 
 test("doctor reports missing setup and detects verification tools", (t) => {
@@ -118,8 +103,8 @@ test("doctor reports symlinked managed paths as blocked", (t) => {
   const project = temporaryProject();
   t.after(project.clean);
   fs.mkdirSync(path.join(project.cwd, ".agents/skills/prove"), { recursive: true });
-  fs.symlinkSync(os.tmpdir(), path.join(project.cwd, ".agents/skills/prove/SKILL.md"));
-  const messages = [];
+  if (!symlinkOrSkip(t, os.tmpdir(), path.join(project.cwd, ".agents/skills/prove/SKILL.md"), "dir")) return;
+  const messages: string[] = [];
   const result = doctorProject({ cwd: project.cwd, log: (message) => messages.push(message) });
   assert.equal(result.healthy, false);
   assert.ok(messages.some((message) => message.includes("BLOCKED .agents/skills/prove/SKILL.md")));
