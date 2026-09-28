@@ -1,69 +1,94 @@
-# Prove CLI
+# Prove
 
-Prove adds a shared verification workflow to a project. It installs the same agent skill for Claude Code and Codex/OpenAI-style agents, creates project context and a contract template, and adds a bounded Definition of Done section to `AGENTS.md` and `CLAUDE.md`.
+**Give coding agents a project-specific definition of done.** Prove installs shared verification guidance for Claude Code and Codex/OpenAI-style agents, then adds project context and contract templates for your repository.
 
-## Use it
+Prove is an installer and set of agent instructions, not a test runner. Your agent uses the tools and commands already configured in your project.
 
-From the root of your project, run:
+## Contents
+
+- [Quick start](#quick-start)
+- [What Prove adds](#what-prove-adds)
+- [Commands](#commands)
+- [What it detects](#what-it-detects)
+- [Safe updates](#safe-updates)
+- [Development](#development)
+- [Contributing](#contributing)
+
+## Quick start
+
+You need Node.js 18 or later and npm. Run Prove from the root of the project you want to set up:
+
+```sh
+npx --yes --package=github:jrcaz/prove-starter-cli prove init
+```
+
+The npm package has not been published yet. The command above runs the CLI from this public GitHub repository without adding it to your project's dependencies. After the package is published, the shorter command will be:
 
 ```sh
 npx prove-starter-cli init
 ```
 
-Then edit `.prove/PROJECT.md` with the setup details the installer could not detect. Create contracts in `.prove/contracts/` for important business capabilities, not individual tickets.
+Then:
 
-```sh
-npx prove-starter-cli update
-npx prove-starter-cli doctor
+1. Review `.prove/PROJECT.md`. Add the commands to start the app and run its required checks, plus any setup steps Prove could not detect.
+2. Add contracts for important business capabilities. Start with `cp .prove/contracts/TEMPLATE.md .prove/contracts/<capability>.md`, then replace the prompts with behavior that must stay true.
+3. Ask your coding agent to implement a change and prove it works. The Prove skill tells it to consult the project context and relevant contracts, run appropriate checks, and report the evidence.
+
+Do not put credentials or other secrets in project context or contracts.
+
+## What Prove adds
+
+After `prove init`, the project includes these files. Existing `AGENTS.md` and `CLAUDE.md` files are kept, with a marked Prove section added to each.
+
+```text
+.agents/skills/prove/SKILL.md     Codex and OpenAI-style agent skill
+.claude/skills/prove/SKILL.md     Claude Code skill
+.prove/PROJECT.md                Project-specific setup and verification notes
+.prove/contracts/TEMPLATE.md     Starting point for capability contracts
+.prove/.prove-managed.json       Tracks Prove-managed shared files
+AGENTS.md                        Prove instructions for compatible agents
+CLAUDE.md                        Prove instructions for Claude Code
 ```
 
-The package exposes the `prove` binary. You can also run it explicitly through npm:
-
-```sh
-npm exec --yes --package=prove-starter-cli -- prove init
-```
+The skill guides an agent through reading project requirements, implementing a change, running relevant checks, exercising runtime behavior when appropriate, and reporting what it verified. The `doctor` command can inspect project metadata, but it does not run those checks for the agent.
 
 ## Commands
 
-- `prove init` detects common frameworks and verification tools, creates missing Prove files, and adds or repairs only the marked Prove section in `AGENTS.md` and `CLAUDE.md`.
-- `prove update` refreshes the two shared skills and contract template only when their contents still match the last Prove-managed version. It never changes `.prove/PROJECT.md` or real contracts.
-- `prove doctor` checks the installation and reports detected project metadata, npm scripts, and verification tooling. It exits nonzero when required Prove files or policy sections are missing.
+Run the commands from the target project's root. With the current GitHub install method, replace `prove` below with `npx --yes --package=github:jrcaz/prove-starter-cli prove`.
 
-## What gets installed
+| Command | What it does |
+| --- | --- |
+| `prove init` | Detects project metadata, creates missing Prove files, installs the shared skills and contract template, and adds or repairs the marked Prove sections in `AGENTS.md` and `CLAUDE.md`. |
+| `prove update` | Refreshes Prove-managed skills and the contract template when they have not been locally changed. It leaves project context and real contracts alone. |
+| `prove doctor` | Reports whether required Prove files and instruction sections are present, along with detected project details, npm scripts, and verification tools. Exits with a nonzero status if required setup is missing or blocked. |
+| `prove --help` | Prints command usage. |
 
-```text
-.agents/skills/prove/SKILL.md
-.claude/skills/prove/SKILL.md
-.prove/PROJECT.md
-.prove/contracts/TEMPLATE.md
-.prove/.prove-managed.json
-AGENTS.md
-CLAUDE.md
-```
+## What it detects
 
-Existing `.prove/PROJECT.md` and files in `.prove/contracts/` are project-owned. `init` leaves them alone if present. `update` does not read or write project context or real contracts. If a shared file has local edits, update preserves it and reports that state. Existing, unrecognized files are not claimed as managed.
+Prove looks at repository files and package metadata. It recognizes common JavaScript and TypeScript frameworks, Python frameworks, Flutter and React Native projects, Tauri, Go modules, and Rust crates. It also looks for test and browser tools such as Playwright, Cypress, Vitest, Jest, pytest, Maestro, and Appium, plus npm scripts that may be useful verification commands.
 
-The Prove sections in `AGENTS.md` and `CLAUDE.md` sit between `<!-- prove:managed:start -->` and `<!-- prove:managed:end -->`. Text outside those markers remains unchanged. `update` does not modify either instruction file.
+Detection is a starting point, not a test of whether a tool is installed or configured correctly. Prove does not install dependencies, execute project scripts, or contact production services. Review `.prove/PROJECT.md` and correct anything the repository metadata cannot tell it.
 
-## Detection
+## Safe updates
 
-The detector reads repository metadata and does not install dependencies or execute project scripts. It recognizes common JavaScript frameworks and test tools, Flutter/Tauri projects, Python project files, Go modules, Rust crates, Maestro, Appium, and npm scripts. Detection is a starting point. Review `.prove/PROJECT.md` and correct anything the repository metadata cannot establish.
+- `init` keeps an existing `.prove/PROJECT.md` and existing contracts. It does not replace your project-specific instructions with detected guesses.
+- Prove marks the section it owns in `AGENTS.md` and `CLAUDE.md`. Text outside those markers is left unchanged.
+- `update` refreshes only shared skills and the contract template whose contents still match the last Prove-managed version. It preserves locally edited or unrecognized files.
+- `update` never changes `.prove/PROJECT.md` or real files in `.prove/contracts/`.
 
 ## Development
-
-Requires Node.js 18 or newer.
 
 ```sh
 npm test
 npm pack --dry-run
 ```
 
-The package name is `prove-starter-cli`. Change the `name` field in `package.json` if you publish under a different npm account or scope.
+The package exposes the `prove` executable through `bin/prove.js`. Its package name is `prove-starter-cli`; change the `name` field in `package.json` if you publish it under another npm name or scope.
 
 ## Contributing
 
-Issues and pull requests are welcome at [jrcaz/prove-starter-cli](https://github.com/jrcaz/prove-starter-cli).
+Bug reports and pull requests are welcome. See the [open issues](https://github.com/jrcaz/prove-starter-cli/issues) or open a [new issue](https://github.com/jrcaz/prove-starter-cli/issues/new).
 
 ## License
 
-MIT. See [LICENSE](LICENSE).
+[MIT](LICENSE)
