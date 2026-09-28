@@ -1,0 +1,24 @@
+{
+  "name": "prove-starter-cli",
+  "version": "0.1.0",
+  "description": "Install and maintain the Prove verification workflow in a project",
+  "homepage": "https://github.com/jrcaz/prove-starter-cli#readme",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/jrcaz/prove-starter-cli.git"
+  },
+  "bugs": {
+    "url": "https://github.com/jrcaz/prove-starter-cli/issues"
+  },
+  "type": "module",
+  "license": "MIT",
+  "engines": {
+    "node": ">=18"
+  },
+  "bin": {
+    "prove": "./bin/prove.js"
+  },
+  "files": ["bin/", "src/", "templates/", "README.md", "LICENSE"],
+  "scripts": {"test": "node --test"},
+  "keywords": ["prove", "verification", "testing", "agent-skills", "cli"]
+}
