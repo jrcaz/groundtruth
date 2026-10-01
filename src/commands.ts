@@ -2,6 +2,8 @@ import { detectProject, renderProjectContext } from "./detect.js";
 import { inspectManagedContent, inspectPolicy, isRegularFile, planManagedContent, planPolicies, POLICY_FILES } from "./content.js";
 import { applyWrites, readText } from "./fs-safe.js";
 import { loadManifest, manifestWrite } from "./manifest.js";
+import { FEATURE_MAP_PATH } from "./constants.js";
+import { renderFeatureMap } from "./feature-map.js";
 import type {
   CommandOptions,
   Detection,
@@ -47,12 +49,14 @@ function describePolicy(plan: PolicyPlan): string {
 export function initProject({ cwd = process.cwd(), log = console.log }: CommandOptions = {}): { detection: Detection; outcomes: ManagedOutcome[]; policies: PolicyPlan[] } {
   const detection = detectProject(cwd);
   const keepProjectContext = readText(cwd, PROJECT_PATH) !== null;
+  const keepFeatureMap = readText(cwd, FEATURE_MAP_PATH) !== null;
   const manifest = loadManifest(cwd);
   const managed = planManagedContent(cwd, manifest);
   const policies = planPolicies(cwd);
 
   applyWrites(cwd, [
     ...(keepProjectContext ? [] : [{ path: PROJECT_PATH, content: renderProjectContext(detection) }]),
+    ...(keepFeatureMap ? [] : [{ path: FEATURE_MAP_PATH, content: renderFeatureMap(cwd, detection) }]),
     ...managed.writes,
     ...policies.flatMap((plan) => (plan.changed && plan.content !== undefined ? [{ path: plan.target, content: plan.content }] : [])),
     manifestWrite(manifest)
@@ -60,6 +64,7 @@ export function initProject({ cwd = process.cwd(), log = console.log }: CommandO
 
   describeDetection(detection, log);
   log(keepProjectContext ? `kept ${PROJECT_PATH}; project context is never overwritten` : `created ${PROJECT_PATH}`);
+  log(keepFeatureMap ? `kept ${FEATURE_MAP_PATH}; feature maps are never overwritten` : `created ${FEATURE_MAP_PATH}; use the feature-map skill to review and complete the starter inventory`);
   for (const outcome of managed.outcomes) log(`${statusLabel(outcome.status)} ${outcome.path}`);
   for (const plan of policies) log(describePolicy(plan));
   log("Prove is ready. Try: \"Implement this feature and prove it works.\"");
@@ -71,7 +76,7 @@ export function updateProject({ cwd = process.cwd(), log = console.log }: Comman
   const { outcomes, writes } = planManagedContent(cwd, manifest);
   applyWrites(cwd, [...writes, manifestWrite(manifest)]);
   for (const outcome of outcomes) log(`${statusLabel(outcome.status)} ${outcome.path}`);
-  log("Update only refreshes Prove-managed skills and the contract template. Project context and real contracts were left untouched.");
+  log("Update only refreshes Prove-managed skills and the contract template. Project context, feature maps, and real contracts were left untouched.");
   return outcomes;
 }
 
@@ -116,6 +121,10 @@ export function doctorProject({ cwd = process.cwd(), log = console.log }: Comman
   const projectContextPresent = isRegularFile(cwd, PROJECT_PATH);
   log(`${projectContextPresent ? "OK" : "MISSING"} ${PROJECT_PATH}`);
   if (!projectContextPresent) healthy = false;
+
+  const featureMapPresent = isRegularFile(cwd, FEATURE_MAP_PATH);
+  log(`${featureMapPresent ? "OK" : "MISSING"} ${FEATURE_MAP_PATH}`);
+  if (!featureMapPresent) healthy = false;
 
   const policies = POLICY_FILES.map((relativePath) => ({ path: relativePath, status: inspectPolicy(cwd, relativePath) }));
   for (const { path: relativePath, status } of policies) {

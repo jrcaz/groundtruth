@@ -6,11 +6,14 @@ import type { ManagedKind } from "./types.js";
 export const PACKAGE_ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..", "..");
 
 export const MANIFEST_PATH = ".prove/.prove-managed.json";
+export const FEATURE_MAP_PATH = ".prove/FEATURE_MAP.md";
 export const POLICY_START = "<!-- prove:managed:start -->";
 export const POLICY_END = "<!-- prove:managed:end -->";
 
 export const MANAGED_CONTENT: Readonly<Record<string, ManagedKind>> = {
   ".agents/skills/prove/SKILL.md": "skill",
   ".claude/skills/prove/SKILL.md": "skill",
+  ".agents/skills/feature-map/SKILL.md": "skill",
+  ".claude/skills/feature-map/SKILL.md": "skill",
   ".prove/contracts/TEMPLATE.md": "contract-template"
 };

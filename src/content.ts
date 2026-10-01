@@ -22,17 +22,27 @@ const POLICY_LINES = [
   "",
   "Implementation and bug-fix work is not complete until the affected behavior has been verified.",
   "",
-  "1. Use the `prove` skill and read `.prove/PROJECT.md`.",
-  "2. Read relevant `.prove/contracts/*.md` files before changing covered behavior.",
+  "1. Use the `prove` skill and read `.prove/PROJECT.md` and `.prove/FEATURE_MAP.md`.",
+  "2. Identify affected capabilities in the feature map and read their linked contracts, plus relevant `.prove/contracts/*.md` files.",
   "3. Exercise the affected behavior with the repository's existing verification tools.",
   "4. Fix failures and repeat the checks. Report what passed and what remains unverified.",
   "",
   "For a new critical business capability, define or update its contract before implementation. Never weaken a contract only to make an implementation pass.",
+  "",
+  "Use the `feature-map` skill to generate or update `.prove/FEATURE_MAP.md` from the current application. Complete a starter map by inspecting the implementation. After adding, changing, or removing capabilities, update the affected map entries and contract links.",
   POLICY_END
 ];
 
 export function packageContent(relativePath: string): string {
-  const template = relativePath === ".prove/contracts/TEMPLATE.md" ? "CONTRACT_TEMPLATE.md" : "SKILL.md";
+  const templates: Readonly<Record<string, string>> = {
+    ".agents/skills/prove/SKILL.md": "SKILL.md",
+    ".claude/skills/prove/SKILL.md": "SKILL.md",
+    ".agents/skills/feature-map/SKILL.md": "FEATURE_MAP_SKILL.md",
+    ".claude/skills/feature-map/SKILL.md": "FEATURE_MAP_SKILL.md",
+    ".prove/contracts/TEMPLATE.md": "CONTRACT_TEMPLATE.md"
+  };
+  const template = templates[relativePath];
+  if (!template) throw new Error(`No bundled template for ${relativePath}`);
   return fs.readFileSync(path.join(PACKAGE_ROOT, "templates", template), "utf8");
 }
 
