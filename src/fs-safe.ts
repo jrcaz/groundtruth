@@ -84,7 +84,7 @@ export function readText(root: string, relativePath: string): string | null {
 
 function removeEmptyDirectories(fromDirectory: string, stopAt: string): void {
   let current = fromDirectory;
-  while (current.startsWith(stopAt)) {
+  while (current === stopAt || current.startsWith(`${stopAt}${path.sep}`)) {
     try {
       fs.rmdirSync(current);
     } catch {
@@ -95,12 +95,32 @@ function removeEmptyDirectories(fromDirectory: string, stopAt: string): void {
   }
 }
 
+function firstMissingDirectory(root: string, directory: string): string | undefined {
+  const absoluteRoot = path.resolve(root);
+  let current = path.resolve(directory);
+  let firstMissing: string | undefined;
+  while (current !== absoluteRoot) {
+    try {
+      fs.lstatSync(current);
+      break;
+    } catch (error) {
+      if (errorCode(error) !== "ENOENT") throw error;
+      firstMissing = current;
+    }
+    const parent = path.dirname(current);
+    if (parent === current) break;
+    current = parent;
+  }
+  return firstMissing;
+}
+
 // Writes atomically. Returns the first directory this call created, if any.
 export function writeText(root: string, relativePath: string, content: string): string | undefined {
   const absolutePath = targetPath(root, relativePath);
-  const createdDirectory = fs.mkdirSync(path.dirname(absolutePath), { recursive: true });
+  const createdDirectory = firstMissingDirectory(root, path.dirname(absolutePath));
   const temporaryPath = `${absolutePath}.${process.pid}.${Date.now()}.tmp`;
   try {
+    fs.mkdirSync(path.dirname(absolutePath), { recursive: true });
     targetPath(root, relativePath);
     fs.writeFileSync(temporaryPath, content, { flag: "wx" });
     fs.renameSync(temporaryPath, absolutePath);
