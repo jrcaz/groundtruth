@@ -9,8 +9,8 @@ Use this workflow to verify implementation and bug-fix work. Prove the behavior 
 
 ## Before changing code
 
-1. Read `.prove/PROJECT.md` for project-specific setup and verification instructions.
-2. Find and read the relevant `.prove/contracts/*.md` files.
+1. Read `.prove/PROJECT.md` for project-specific setup and verification instructions, and `.prove/FEATURE_MAP.md` for the application's capabilities.
+2. Identify affected capabilities and read their linked contracts. Also search `.prove/contracts/*.md` for relevant contracts that the map may not yet include. A starter or incomplete map does not limit the scope of verification.
 3. Turn the request into observable acceptance criteria. Include failure cases and important edge cases, not only the happy path.
 4. Assess the risk. Authentication, authorization, payments, data loss, privacy, and other critical business flows need stronger proof.
 5. If a new critical business capability has no contract, define or update its contract before implementation. Do not create a contract for every small task.
@@ -27,6 +27,8 @@ When no relevant contract exists, derive task-specific criteria and proceed. Do 
 6. Fix failures caused by the change and repeat the relevant checks. Do not weaken or rewrite a contract just to make an implementation pass. Change a contract only when the product requirement itself has changed.
 
 Do not run against production unless the task explicitly requires it and access is authorized. Keep credentials outside the repository.
+
+When the change adds, modifies, or removes a product capability, use the `feature-map` skill to update its map entry, source references, and contract links. Preserve unrelated entries. Finding a capability in source code does not mean it passed runtime verification.
 
 ## Report the proof
 

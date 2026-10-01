@@ -11,7 +11,7 @@ Usage:
   prove <command>
 
 Commands:
-  init      Detect the project and install Prove guidance
+  init      Detect the project, create a feature map, and install Prove guidance
   update    Refresh unchanged, Prove-managed shared files
   doctor    Check installation and detected verification tools
   --help    Show this help
