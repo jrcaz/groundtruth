@@ -13,7 +13,7 @@ export interface TemporaryProject {
 }
 
 export function temporaryProject(): TemporaryProject {
-  const cwd = fs.mkdtempSync(path.join(os.tmpdir(), "prove-cli-test-"));
+  const cwd = fs.mkdtempSync(path.join(os.tmpdir(), "groundtruth-cli-test-"));
   return {
     cwd,
     clean: () => fs.rmSync(cwd, { recursive: true, force: true }),

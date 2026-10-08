@@ -5,15 +5,15 @@ import type { ManagedKind } from "./types.js";
 // Compiled files live in dist/src, so the package root is two levels up.
 export const PACKAGE_ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..", "..");
 
-export const MANIFEST_PATH = ".prove/.prove-managed.json";
-export const FEATURE_MAP_PATH = ".prove/FEATURE_MAP.md";
-export const POLICY_START = "<!-- prove:managed:start -->";
-export const POLICY_END = "<!-- prove:managed:end -->";
+export const MANIFEST_PATH = ".groundtruth/.groundtruth-managed.json";
+export const FEATURE_MAP_PATH = ".groundtruth/FEATURE_MAP.md";
+export const POLICY_START = "<!-- groundtruth:managed:start -->";
+export const POLICY_END = "<!-- groundtruth:managed:end -->";
 
 export const MANAGED_CONTENT: Readonly<Record<string, ManagedKind>> = {
-  ".agents/skills/prove/SKILL.md": "skill",
-  ".claude/skills/prove/SKILL.md": "skill",
+  ".agents/skills/groundtruth/SKILL.md": "skill",
+  ".claude/skills/groundtruth/SKILL.md": "skill",
   ".agents/skills/feature-map/SKILL.md": "skill",
   ".claude/skills/feature-map/SKILL.md": "skill",
-  ".prove/contracts/TEMPLATE.md": "contract-template"
+  ".groundtruth/contracts/TEMPLATE.md": "contract-template"
 };

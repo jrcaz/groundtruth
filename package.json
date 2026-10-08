@@ -1,14 +1,14 @@
 {
-  "name": "prove-starter-cli",
+  "name": "groundtruth",
   "version": "0.1.0",
-  "description": "Install and maintain the Prove verification workflow in a project",
-  "homepage": "https://github.com/jrcaz/prove-starter-cli#readme",
+  "description": "Give coding agents a project-specific definition of done. Installs and maintains the GroundTruth verification workflow in a project.",
+  "homepage": "https://github.com/jrcaz/groundtruth#readme",
   "repository": {
     "type": "git",
-    "url": "git+https://github.com/jrcaz/prove-starter-cli.git"
+    "url": "git+https://github.com/jrcaz/groundtruth.git"
   },
   "bugs": {
-    "url": "https://github.com/jrcaz/prove-starter-cli/issues"
+    "url": "https://github.com/jrcaz/groundtruth/issues"
   },
   "type": "module",
   "license": "MIT",
@@ -16,7 +16,7 @@
     "node": ">=18"
   },
   "bin": {
-    "prove": "./dist/bin/prove.js"
+    "groundtruth": "./dist/bin/groundtruth.js"
   },
   "files": [
     "dist/bin/",
@@ -33,7 +33,7 @@
     "test": "npm run build && cd dist && node --test"
   },
   "keywords": [
-    "prove",
+    "groundtruth",
     "verification",
     "testing",
     "agent-skills",
