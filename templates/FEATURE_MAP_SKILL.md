@@ -1,15 +1,15 @@
 ---
 name: feature-map
-description: Generate or update .prove/FEATURE_MAP.md by inspecting the existing application's capabilities, source evidence, and verification contracts. Use for product capability inventories or changes that add, modify, or remove a capability.
+description: Generate or update .groundtruth/FEATURE_MAP.md by inspecting the existing application's capabilities, source evidence, and verification contracts. Use for product capability inventories or changes that add, modify, or remove a capability.
 ---
 
 # Feature map
 
-Maintain `.prove/FEATURE_MAP.md` as a structured view of what the current application can do. Group capabilities into meaningful product areas and include variants when they change observable behavior.
+Maintain `.groundtruth/FEATURE_MAP.md` as a structured view of what the current application can do. Group capabilities into meaningful product areas and include variants when they change observable behavior.
 
 ## Inspect the application
 
-Read the existing map, `.prove/PROJECT.md`, repository instructions, and relevant `.prove/contracts/*.md` files. Exclude `TEMPLATE.md` from real contracts. Follow source references and contract links already in the map before editing them.
+Read the existing map, `.groundtruth/PROJECT.md`, repository instructions, and relevant `.groundtruth/contracts/*.md` files. Exclude `TEMPLATE.md` from real contracts. Follow source references and contract links already in the map before editing them.
 
 For an initial map, inspect application entry points, navigation, screens, API handlers, CLI commands, background jobs, and the implementation they call. Use project documentation and tests to understand behavior, then check it against current code. Cover each application in a monorepo and record anything you could not inspect.
 
@@ -26,10 +26,10 @@ Each capability should include:
 - A stable identifier and a short description of observable behavior.
 - Its current implementation status: `implemented`, `partial`, `disabled`, or `unconfirmed`.
 - Repository source references that support the description.
-- Links to applicable `.prove/contracts/*.md` files, or `None found` when no contract exists.
+- Links to applicable `.groundtruth/contracts/*.md` files, or `None found` when no contract exists.
 - Relevant tests or verification references when found. Report runtime proof separately from implementation status.
 
-Use links relative to `.prove/FEATURE_MAP.md`. Source and test links usually start with `../`; contract links start with `contracts/`. Verify every linked file exists. A contract can cover several capabilities, and a capability can reference several contracts.
+Use links relative to `.groundtruth/FEATURE_MAP.md`. Source and test links usually start with `../`; contract links start with `contracts/`. Verify every linked file exists. A contract can cover several capabilities, and a capability can reference several contracts.
 
 For example, when supported by the inspected code:
 

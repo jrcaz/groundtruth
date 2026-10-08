@@ -1,16 +1,16 @@
 ---
-name: prove
+name: groundtruth
 description: Verify implementation work against project context, business contracts, and the repository's existing tools.
 ---
 
-# Prove
+# GroundTruth
 
 Use this workflow to verify implementation and bug-fix work. Prove the behavior that changed. Do not claim checks passed unless you ran them and inspected their results.
 
 ## Before changing code
 
-1. Read `.prove/PROJECT.md` for project-specific setup and verification instructions, and `.prove/FEATURE_MAP.md` for the application's capabilities.
-2. Identify affected capabilities and read their linked contracts. Also search `.prove/contracts/*.md` for relevant contracts that the map may not yet include. A starter or incomplete map does not limit the scope of verification.
+1. Read `.groundtruth/PROJECT.md` for project-specific setup and verification instructions, and `.groundtruth/FEATURE_MAP.md` for the application's capabilities.
+2. Identify affected capabilities and read their linked contracts. Also search `.groundtruth/contracts/*.md` for relevant contracts that the map may not yet include. A starter or incomplete map does not limit the scope of verification.
 3. Turn the request into observable acceptance criteria. Include failure cases and important edge cases, not only the happy path.
 4. Assess the risk. Authentication, authorization, payments, data loss, privacy, and other critical business flows need stronger proof.
 5. If a new critical business capability has no contract, define or update its contract before implementation. Do not create a contract for every small task.

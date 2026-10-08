@@ -22,24 +22,24 @@ const POLICY_LINES = [
   "",
   "Implementation and bug-fix work is not complete until the affected behavior has been verified.",
   "",
-  "1. Use the `prove` skill and read `.prove/PROJECT.md` and `.prove/FEATURE_MAP.md`.",
-  "2. Identify affected capabilities in the feature map and read their linked contracts, plus relevant `.prove/contracts/*.md` files.",
+  "1. Use the `groundtruth` skill and read `.groundtruth/PROJECT.md` and `.groundtruth/FEATURE_MAP.md`.",
+  "2. Identify affected capabilities in the feature map and read their linked contracts, plus relevant `.groundtruth/contracts/*.md` files.",
   "3. Exercise the affected behavior with the repository's existing verification tools.",
   "4. Fix failures and repeat the checks. Report what passed and what remains unverified.",
   "",
   "For a new critical business capability, define or update its contract before implementation. Never weaken a contract only to make an implementation pass.",
   "",
-  "Use the `feature-map` skill to generate or update `.prove/FEATURE_MAP.md` from the current application. Complete a starter map by inspecting the implementation. After adding, changing, or removing capabilities, update the affected map entries and contract links.",
+  "Use the `feature-map` skill to generate or update `.groundtruth/FEATURE_MAP.md` from the current application. Complete a starter map by inspecting the implementation. After adding, changing, or removing capabilities, update the affected map entries and contract links.",
   POLICY_END
 ];
 
 export function packageContent(relativePath: string): string {
   const templates: Readonly<Record<string, string>> = {
-    ".agents/skills/prove/SKILL.md": "SKILL.md",
-    ".claude/skills/prove/SKILL.md": "SKILL.md",
+    ".agents/skills/groundtruth/SKILL.md": "SKILL.md",
+    ".claude/skills/groundtruth/SKILL.md": "SKILL.md",
     ".agents/skills/feature-map/SKILL.md": "FEATURE_MAP_SKILL.md",
     ".claude/skills/feature-map/SKILL.md": "FEATURE_MAP_SKILL.md",
-    ".prove/contracts/TEMPLATE.md": "CONTRACT_TEMPLATE.md"
+    ".groundtruth/contracts/TEMPLATE.md": "CONTRACT_TEMPLATE.md"
   };
   const template = templates[relativePath];
   if (!template) throw new Error(`No bundled template for ${relativePath}`);
@@ -59,7 +59,7 @@ export function policyMarkerState(content: string): PolicyMarkerState {
 export function renderPolicy(current: string, relativePath: string): string {
   const state = policyMarkerState(current);
   if (state === "invalid") {
-    throw new Error(`${relativePath} has incomplete, repeated, or out-of-order Prove markers. Resolve them manually; no content was changed.`);
+    throw new Error(`${relativePath} has incomplete, repeated, or out-of-order GroundTruth markers. Resolve them manually; no content was changed.`);
   }
   const eol = current.includes("\r\n") ? "\r\n" : "\n";
   const policy = POLICY_LINES.join(eol);
@@ -71,7 +71,7 @@ export function renderPolicy(current: string, relativePath: string): string {
   return `${current}${current && !current.endsWith("\n") ? eol : ""}${current ? eol : ""}${policy}${eol}`;
 }
 
-// Plans the Prove section for each agent instruction file. A file that is a
+// Plans the GroundTruth section for each agent instruction file. A file that is a
 // symbolic link to another file in the project is edited through its target,
 // and two links to the same file share one section.
 export function planPolicies(root: string): PolicyPlan[] {
@@ -79,8 +79,8 @@ export function planPolicies(root: string): PolicyPlan[] {
   const handled = new Map<string, string>();
   for (const relativePath of POLICY_FILES) {
     const target = resolveLinkedFile(root, relativePath);
-    if (target.linkedFrom && (target.path in MANAGED_CONTENT || target.path.startsWith(".prove/"))) {
-      throw new Error(`${relativePath} is a symbolic link to ${target.path}, which Prove manages separately. Point it at a regular instructions file, then run the command again.`);
+    if (target.linkedFrom && (target.path in MANAGED_CONTENT || target.path.startsWith(".groundtruth/"))) {
+      throw new Error(`${relativePath} is a symbolic link to ${target.path}, which GroundTruth manages separately. Point it at a regular instructions file, then run the command again.`);
     }
     const sharedWith = handled.get(target.path);
     if (sharedWith) {
