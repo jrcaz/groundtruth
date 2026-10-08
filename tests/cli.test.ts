@@ -4,7 +4,7 @@ import fs from "node:fs";
 import path from "node:path";
 import test from "node:test";
 import { PACKAGE_ROOT, POLICY_END, POLICY_START } from "../src/constants.js";
-import { snapshot, temporaryProject } from "./helpers.js";
+import { legacySetup, snapshot, temporaryProject } from "./helpers.js";
 
 const binPath = path.join(PACKAGE_ROOT, "dist", "bin", "groundtruth.js");
 const { version } = JSON.parse(fs.readFileSync(path.join(PACKAGE_ROOT, "package.json"), "utf8")) as { version: string };
@@ -83,4 +83,31 @@ test("a failed groundtruth init exits 1, reports the reason, and writes nothing"
   assert.equal(result.stdout, "");
   assert.match(result.stderr, /^groundtruth: AGENTS\.md has incomplete, repeated, or out-of-order GroundTruth markers\./m);
   assert.deepEqual(snapshot(project.cwd), before);
+});
+
+test("groundtruth init and update refuse a Prove setup, doctor reports it, and migrate converts it", (t) => {
+  const project = temporaryProject();
+  t.after(project.clean);
+  legacySetup(project);
+  const before = snapshot(project.cwd);
+
+  for (const command of ["init", "update"]) {
+    const refused = groundtruth(project.cwd, command);
+    assert.equal(refused.status, 1);
+    assert.match(refused.stderr, /^groundtruth: Found a setup from Prove, the earlier name of GroundTruth: \.prove\/, \.agents\/skills\/prove\/SKILL\.md, \.claude\/skills\/prove\/SKILL\.md, AGENTS\.md Prove section, CLAUDE\.md Prove section\. Run `groundtruth migrate` instead\..* No files were changed\.$/m);
+  }
+  assert.deepEqual(snapshot(project.cwd), before);
+
+  const doctor = groundtruth(project.cwd, "doctor");
+  assert.equal(doctor.status, 1);
+  assert.match(doctor.stdout, /^OLD \.prove\/$/m);
+  assert.match(doctor.stdout, /^OLD AGENTS\.md Prove section$/m);
+  assert.match(doctor.stdout, /Run `groundtruth migrate` to move it to GroundTruth\.$/m);
+
+  const migrate = groundtruth(project.cwd, "migrate");
+  assert.equal(migrate.status, 0, migrate.stderr);
+  assert.match(migrate.stdout, /^moved \.prove\/PROJECT\.md to \.groundtruth\/PROJECT\.md$/m);
+  assert.match(migrate.stdout, /GroundTruth is ready\./);
+  assert.equal(groundtruth(project.cwd, "doctor").status, 0);
+  assert.equal(groundtruth(project.cwd, "init").status, 0);
 });

@@ -1,6 +1,7 @@
 import { detectProject, renderProjectContext } from "./detect.js";
 import { inspectManagedContent, inspectPolicy, isRegularFile, planManagedContent, planPolicies, POLICY_FILES } from "./content.js";
-import { applyWrites, readText } from "./fs-safe.js";
+import { applyWrites, readText, removeEmptyDirectory } from "./fs-safe.js";
+import { findLegacySetup, planMigration } from "./legacy.js";
 import { loadManifest, manifestWrite } from "./manifest.js";
 import { FEATURE_MAP_PATH } from "./constants.js";
 import { renderFeatureMap } from "./feature-map.js";
@@ -80,11 +81,37 @@ export function updateProject({ cwd = process.cwd(), log = console.log }: Comman
   return outcomes;
 }
 
+// Moves a setup made by Prove, the earlier name of GroundTruth, into place and
+// then runs init. The Prove changes are applied together, like init's writes.
+export function migrateProject({ cwd = process.cwd(), log = console.log }: CommandOptions = {}): { migrated: boolean } {
+  if (!findLegacySetup(cwd).length) {
+    log("No Prove setup found. Nothing to migrate.");
+    return { migrated: false };
+  }
+  const plan = planMigration(cwd);
+  applyWrites(cwd, plan.writes);
+  for (const action of plan.actions) log(action);
+  for (const directory of plan.emptied) {
+    if (removeEmptyDirectory(cwd, directory)) log(`removed ${directory}/`);
+  }
+  try {
+    initProject({ cwd, log });
+  } catch (error) {
+    if (error instanceof Error) {
+      const reason = error.message.replace(/ No files were changed\.$/, "");
+      error.message = `The Prove files were migrated, but the GroundTruth setup did not finish: ${reason} Fix the problem, then run \`groundtruth init\`.`;
+    }
+    throw error;
+  }
+  return { migrated: true };
+}
+
 export interface DoctorResult {
   healthy: boolean;
   detection: Detection;
   managed: ManagedInspection[];
   policies: Array<{ path: string; status: PolicyInspectionStatus }>;
+  legacy: string[];
 }
 
 const MANAGED_LABELS: Record<ManagedInspectionStatus, string> = {
@@ -111,8 +138,10 @@ function describePolicyStatus(relativePath: string, status: PolicyInspectionStat
 export function doctorProject({ cwd = process.cwd(), log = console.log }: CommandOptions = {}): DoctorResult {
   const detection = detectProject(cwd);
   const managed = inspectManagedContent(cwd, loadManifest(cwd));
-  let healthy = true;
+  const legacy = findLegacySetup(cwd);
+  let healthy = legacy.length === 0;
   log("GroundTruth installation:");
+  for (const item of legacy) log(`OLD ${item}`);
   for (const item of managed) {
     log(`${MANAGED_LABELS[item.status]} ${item.path}`);
     if (item.status === "missing" || item.status === "blocked") healthy = false;
@@ -138,6 +167,7 @@ export function doctorProject({ cwd = process.cwd(), log = console.log }: Comman
   if (detection.workspaces.length) log(`Workspaces: ${detection.workspaces.join(", ")}`);
   log(`Tools: ${detection.verificationTools.length ? detection.verificationTools.join(", ") : "none detected"}`);
   if (detection.packageScripts.length) log(`npm scripts: ${detection.packageScripts.map(({ name }) => name).join(", ")}`);
-  log(healthy ? "GroundTruth setup looks good." : "GroundTruth setup is incomplete. Run `groundtruth init` or resolve the missing files.");
-  return { healthy, detection, managed, policies };
+  if (legacy.length) log("Found a setup from Prove, the earlier name of GroundTruth. Run `groundtruth migrate` to move it to GroundTruth.");
+  else log(healthy ? "GroundTruth setup looks good." : "GroundTruth setup is incomplete. Run `groundtruth init` or resolve the missing files.");
+  return { healthy, detection, managed, policies, legacy };
 }

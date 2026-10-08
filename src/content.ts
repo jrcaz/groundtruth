@@ -48,12 +48,20 @@ export function packageContent(relativePath: string): string {
 
 // "absent": no markers. "valid": exactly one start marker followed by one end marker.
 // "invalid": anything else (unpaired, repeated, or out of order).
-export function policyMarkerState(content: string): PolicyMarkerState {
-  const startCount = content.split(POLICY_START).length - 1;
-  const endCount = content.split(POLICY_END).length - 1;
+export function policyMarkerState(content: string, start = POLICY_START, end = POLICY_END): PolicyMarkerState {
+  const startCount = content.split(start).length - 1;
+  const endCount = content.split(end).length - 1;
   if (startCount === 0 && endCount === 0) return "absent";
-  if (startCount === 1 && endCount === 1 && content.indexOf(POLICY_START) < content.indexOf(POLICY_END)) return "valid";
+  if (startCount === 1 && endCount === 1 && content.indexOf(start) < content.indexOf(end)) return "valid";
   return "invalid";
+}
+
+export function lineEnding(content: string): string {
+  return content.includes("\r\n") ? "\r\n" : "\n";
+}
+
+export function renderPolicySection(eol: string): string {
+  return POLICY_LINES.join(eol);
 }
 
 export function renderPolicy(current: string, relativePath: string): string {
@@ -61,8 +69,8 @@ export function renderPolicy(current: string, relativePath: string): string {
   if (state === "invalid") {
     throw new Error(`${relativePath} has incomplete, repeated, or out-of-order GroundTruth markers. Resolve them manually; no content was changed.`);
   }
-  const eol = current.includes("\r\n") ? "\r\n" : "\n";
-  const policy = POLICY_LINES.join(eol);
+  const eol = lineEnding(current);
+  const policy = renderPolicySection(eol);
   if (state === "valid") {
     const start = current.indexOf(POLICY_START);
     const end = current.indexOf(POLICY_END) + POLICY_END.length;

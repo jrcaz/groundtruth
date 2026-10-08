@@ -106,7 +106,8 @@ Run from the project root. Until the package is published, replace `groundtruth`
 | --- | --- |
 | `groundtruth init` | Detects the project, creates `PROJECT.md` and a starter feature map if they are missing, installs the skills and contract template, and adds or repairs the marked section in `AGENTS.md` and `CLAUDE.md`. |
 | `groundtruth update` | Refreshes the skills and contract template when you have not edited them. |
-| `groundtruth doctor` | Reports which GroundTruth files and instruction sections are present, plus the frameworks, tools, and npm scripts it detects. Exits nonzero if required setup is missing or blocked. |
+| `groundtruth doctor` | Reports which GroundTruth files and instruction sections are present, any files left by Prove, plus the frameworks, tools, and npm scripts it detects. Exits nonzero if required setup is missing or blocked, or if Prove files remain. |
+| `groundtruth migrate` | Moves a setup made by Prove, the earlier name of GroundTruth, into place and then runs `init`. See [Moving from Prove](#moving-from-prove). |
 | `groundtruth --help` | Prints usage. `--version` prints the installed version. |
 
 ## What it detects
@@ -160,9 +161,63 @@ Write one for each capability where a silent regression would hurt, such as logi
 
 ## Moving from Prove
 
-Projects set up by the earlier `prove` command have a `.prove/` directory, `prove` skills, and `<!-- prove:managed -->` markers. GroundTruth does not read those. To migrate:
+GroundTruth used to be called Prove. A project set up with `prove init` has a `.prove/` directory, `prove` skills, and a section in `AGENTS.md` and `CLAUDE.md` marked with `<!-- prove:managed:start -->` and `<!-- prove:managed:end -->`. GroundTruth does not read any of those. Running GroundTruth next to them would add a second, separate setup, so `init` and `update` refuse to run while they are present, and `doctor` lists them.
 
-1. Rename the directory with `git mv .prove .groundtruth`, then delete `.groundtruth/.prove-managed.json`.
+From the project root, preferably with a clean Git working tree so you can review the change, run:
+
+```sh
+groundtruth migrate
+```
+
+Here is what it printed for a project set up with the last Prove release:
+
+```text
+moved .prove/FEATURE_MAP.md to .groundtruth/FEATURE_MAP.md
+moved .prove/PROJECT.md to .groundtruth/PROJECT.md
+removed .prove/contracts/TEMPLATE.md; it was never edited, so the current template replaces it
+removed .agents/skills/prove/SKILL.md
+removed .claude/skills/prove/SKILL.md
+removed .agents/skills/feature-map/SKILL.md
+removed .claude/skills/feature-map/SKILL.md
+replaced the Prove section in AGENTS.md with the GroundTruth section
+replaced the Prove section in CLAUDE.md with the GroundTruth section
+removed .prove/contracts/
+removed .prove/
+removed .agents/skills/prove/
+removed .claude/skills/prove/
+Detected project: Software project
+Frameworks: Not identified
+Languages: JavaScript/TypeScript
+Verification tools: none detected
+kept .groundtruth/PROJECT.md; project context is never overwritten
+kept .groundtruth/FEATURE_MAP.md; feature maps are never overwritten
+created .agents/skills/groundtruth/SKILL.md
+created .claude/skills/groundtruth/SKILL.md
+created .agents/skills/feature-map/SKILL.md
+created .claude/skills/feature-map/SKILL.md
+created .groundtruth/contracts/TEMPLATE.md
+confirmed AGENTS.md
+confirmed CLAUDE.md
+GroundTruth is ready. Try: "Implement this feature and prove it works."
+```
+
+`migrate` makes these changes and then runs `init`:
+
+- It moves everything in `.prove/` to `.groundtruth/`, including your project context, feature map, and contracts. In moved Markdown files it changes `.prove` paths to `.groundtruth` and renames the headings and phrases Prove generated, such as `# Prove project context` and "the `prove` skill". Other files move unchanged.
+- It deletes the old manifest. It also removes the `prove` skills, the old `feature-map` skills, and the old contract template, but only if you never edited them. The hashes in `.prove/.prove-managed.json` tell it which files those are. `init` then installs the current versions.
+- It replaces the old section in `AGENTS.md` and `CLAUDE.md` with the GroundTruth section, in the same place. If a file already has a GroundTruth section, it removes only the old one.
+
+It checks every file before it changes anything. It stops without changing files and lists every problem when:
+
+- A `prove` or `feature-map` skill has local edits, or `.prove/.prove-managed.json` is missing so it cannot tell. Copy your edits somewhere safe and delete the file. After migrating, add the edits to the new skill.
+- A file exists in both `.prove/` and `.groundtruth/` with different content, for example because `groundtruth init` ran before the project was migrated. Keep one copy and delete the other.
+- The old markers are unpaired, repeated, or out of order.
+
+`migrate` does not change other mentions of "Prove" in your own text, because the word is also a verb. If your notes or contracts name the tool, search for them after migrating.
+
+To migrate by hand instead:
+
+1. Rename the directory with `git mv .prove .groundtruth`, then delete the old manifest with `rm .groundtruth/.prove-managed.json`. `git rm` refuses it right after the move because the move staged it.
 2. Inside the moved files, replace `.prove/` with `.groundtruth/` and the name "Prove" with "GroundTruth". Relative source links in the feature map still work; only text that spells out the directory or product name changes.
 3. Delete the old skills: `.claude/skills/prove/`, `.agents/skills/prove/`, `.claude/skills/feature-map/`, and `.agents/skills/feature-map/`. The old feature-map skill points agents at `.prove/`, and once the manifest is gone `update` will not replace it. Copy out any local edits first; `init` installs fresh versions.
 4. In `AGENTS.md` and `CLAUDE.md`, delete the old section, including the `<!-- prove:managed:start -->` and `<!-- prove:managed:end -->` lines.
