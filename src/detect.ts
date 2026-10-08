@@ -238,7 +238,7 @@ export function detectProject(root: string): Detection {
 
 export function renderProjectContext(detection: Detection): string {
   const lines = [
-    "# Prove project context",
+    "# GroundTruth project context",
     "",
     "Fill in any details the installer could not detect. Do not store secrets here.",
     "",
@@ -251,7 +251,7 @@ export function renderProjectContext(detection: Detection): string {
     "",
     "## Feature map",
     "",
-    "Read `.prove/FEATURE_MAP.md` for product capabilities and their contracts. Use the `feature-map` skill to complete its starter inventory from the current implementation and update it when capabilities change.",
+    "Read `.groundtruth/FEATURE_MAP.md` for product capabilities and their contracts. Use the `feature-map` skill to complete its starter inventory from the current implementation and update it when capabilities change.",
     "",
     "## How to run",
     "",
@@ -285,7 +285,7 @@ export function renderProjectContext(detection: Detection): string {
     "",
     "## High-risk areas",
     "",
-    "List business-critical flows and point to their `.prove/contracts/*.md` files.",
+    "List business-critical flows and point to their `.groundtruth/contracts/*.md` files.",
     "",
     "## Known constraints",
     "",

@@ -24,7 +24,7 @@ test("init detects tooling and preserves existing guide content", (t) => {
   const result = initProject({ cwd: project.cwd, log: (message) => messages.push(message) });
   assert.deepEqual(result.detection.frameworks, ["Next.js"]);
   assert.deepEqual(result.detection.verificationTools, ["Playwright", "Vitest"]);
-  assert.match(project.get(".prove/PROJECT.md"), /npm run typecheck/);
+  assert.match(project.get(".groundtruth/PROJECT.md"), /npm run typecheck/);
   assert.match(project.get("AGENTS.md"), /Keep this text\./);
   assert.equal(project.get("AGENTS.md").split(POLICY_START).length - 1, 1);
   assert.equal(project.get("CLAUDE.md").split(POLICY_END).length - 1, 1);
@@ -35,13 +35,13 @@ test("init is repeatable and does not overwrite project context or real contract
   const project = temporaryProject();
   t.after(project.clean);
   initProject({ cwd: project.cwd, log: () => {} });
-  project.put(".prove/PROJECT.md", "# Project-owned context\n");
-  project.put(".prove/contracts/payments.md", "# Real contract\n");
+  project.put(".groundtruth/PROJECT.md", "# Project-owned context\n");
+  project.put(".groundtruth/contracts/payments.md", "# Real contract\n");
   const originalPolicy = project.get("AGENTS.md");
 
   initProject({ cwd: project.cwd, log: () => {} });
-  assert.equal(project.get(".prove/PROJECT.md"), "# Project-owned context\n");
-  assert.equal(project.get(".prove/contracts/payments.md"), "# Real contract\n");
+  assert.equal(project.get(".groundtruth/PROJECT.md"), "# Project-owned context\n");
+  assert.equal(project.get(".groundtruth/contracts/payments.md"), "# Real contract\n");
   assert.equal(project.get("AGENTS.md"), originalPolicy);
 });
 
@@ -51,11 +51,11 @@ test("update refreshes unchanged managed files and never touches project-owned f
   initProject({ cwd: project.cwd, log: () => {} });
   const projectContext = "# Hand-authored project context\n";
   const realContract = "# Keep this contract exactly\n";
-  project.put(".prove/PROJECT.md", projectContext);
-  project.put(".prove/contracts/authentication.md", realContract);
+  project.put(".groundtruth/PROJECT.md", projectContext);
+  project.put(".groundtruth/contracts/authentication.md", realContract);
 
-  const skillPath = ".agents/skills/prove/SKILL.md";
-  const olderSkill = "---\nname: prove\n---\n\nOlder managed content.\n";
+  const skillPath = ".agents/skills/groundtruth/SKILL.md";
+  const olderSkill = "---\nname: groundtruth\n---\n\nOlder managed content.\n";
   project.put(skillPath, olderSkill);
   const manifest = JSON.parse(project.get(MANIFEST_PATH));
   manifest.managed[skillPath] = hash(olderSkill);
@@ -63,8 +63,8 @@ test("update refreshes unchanged managed files and never touches project-owned f
 
   updateProject({ cwd: project.cwd, log: () => {} });
   assert.equal(project.get(skillPath), packageContent(skillPath));
-  assert.equal(project.get(".prove/PROJECT.md"), projectContext);
-  assert.equal(project.get(".prove/contracts/authentication.md"), realContract);
+  assert.equal(project.get(".groundtruth/PROJECT.md"), projectContext);
+  assert.equal(project.get(".groundtruth/contracts/authentication.md"), realContract);
   for (const managedPath of Object.keys(MANAGED_CONTENT)) assert.ok(fs.existsSync(path.join(project.cwd, managedPath)));
 });
 
@@ -72,7 +72,7 @@ test("update leaves customized managed content alone", (t) => {
   const project = temporaryProject();
   t.after(project.clean);
   initProject({ cwd: project.cwd, log: () => {} });
-  const skillPath = ".claude/skills/prove/SKILL.md";
+  const skillPath = ".claude/skills/groundtruth/SKILL.md";
   const edited = `${project.get(skillPath)}\nLocal addition.\n`;
   project.put(skillPath, edited);
   const outcomes = updateProject({ cwd: project.cwd, log: () => {} });
@@ -102,12 +102,12 @@ test("detector recognizes Python frameworks and pytest from project metadata", (
 test("doctor reports symlinked managed paths as blocked", (t) => {
   const project = temporaryProject();
   t.after(project.clean);
-  fs.mkdirSync(path.join(project.cwd, ".agents/skills/prove"), { recursive: true });
-  if (!symlinkOrSkip(t, os.tmpdir(), path.join(project.cwd, ".agents/skills/prove/SKILL.md"), "dir")) return;
+  fs.mkdirSync(path.join(project.cwd, ".agents/skills/groundtruth"), { recursive: true });
+  if (!symlinkOrSkip(t, os.tmpdir(), path.join(project.cwd, ".agents/skills/groundtruth/SKILL.md"), "dir")) return;
   const messages: string[] = [];
   const result = doctorProject({ cwd: project.cwd, log: (message) => messages.push(message) });
   assert.equal(result.healthy, false);
-  assert.ok(messages.some((message) => message.includes("BLOCKED .agents/skills/prove/SKILL.md")));
+  assert.ok(messages.some((message) => message.includes("BLOCKED .agents/skills/groundtruth/SKILL.md")));
 });
 
 test("policy upsert uses bounded markers without duplicating the managed section", (t) => {

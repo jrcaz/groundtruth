@@ -1,97 +1,123 @@
-# Prove
+# GroundTruth
 
-**Give coding agents a project-specific definition of done.** Prove installs shared verification and feature map skills for Claude Code and Codex/OpenAI-style agents, then adds project context, a starter feature map, and contract templates for your repository.
+Give coding agents a project-specific definition of done.
 
-Prove is an installer and set of agent instructions, not a test runner. Your agent uses the tools and commands already configured in your project.
+Coding agents are good at making a change and bad at proving it works. "Done" often means the code compiled, a test command started, or the agent read its own diff and liked it. GroundTruth installs two agent skills and a handful of project files that tell the agent what done means in your repository: which commands to run, which business behavior has to stay true, and what evidence to report back.
+
+GroundTruth is an installer and a set of agent instructions. It is not a test runner. Your agent runs the tools the project already has, such as Vitest, Playwright, pytest, or Maestro. It works with Claude Code and with Codex and other agents that read `AGENTS.md` and `.agents/skills/`.
 
 ## Contents
 
+- [Why use it](#why-use-it)
 - [Quick start](#quick-start)
-- [What Prove adds](#what-prove-adds)
+- [What lands in your repository](#what-lands-in-your-repository)
+- [How a verified change works](#how-a-verified-change-works)
 - [Commands](#commands)
 - [What it detects](#what-it-detects)
 - [Feature maps](#feature-maps)
-- [Safe updates](#safe-updates)
+- [Contracts](#contracts)
+- [What GroundTruth does not do](#what-groundtruth-does-not-do)
+- [Safe to run again](#safe-to-run-again)
+- [Moving from Prove](#moving-from-prove)
 - [Development](#development)
 - [Contributing](#contributing)
 
+## Why use it
+
+**Proof instead of claims.** The skill tells the agent to inspect the output of every check and to report each acceptance criterion as `PASS` or `BLOCKED`, with the evidence behind it. A command that started is not a pass.
+
+**Your project's rules, not generic ones.** `.groundtruth/PROJECT.md` holds how this app starts, which checks are required, and where the high-risk flows are. The agent reads it before it changes code, so you stop repeating "run the e2e suite too" in every prompt.
+
+**Business rules that survive refactors.** A contract pins down the behavior a capability such as login or checkout must keep. When a change touches that capability, the agent has to read the contract and run the proof it asks for. The skill forbids weakening a contract to make an implementation pass.
+
+**A map of what the product does today.** `.groundtruth/FEATURE_MAP.md` lists capabilities by product area with a status (`implemented`, `partial`, `disabled`, `unconfirmed`) and links to the source, the contract, and the tests. The agent uses it to find what a change affects. You can use it to find what nobody has verified yet.
+
+**Nothing new to install in the project.** The package adds Markdown files to your repository and a marked section to `AGENTS.md` and `CLAUDE.md`. There is no runtime dependency and no service to sign up for.
+
 ## Quick start
 
-You need Node.js 18 or later and npm. Run Prove from the root of the project you want to set up:
+You need Node.js 18 or later and npm. Run from the root of the project you want to set up:
 
 ```sh
-npx --yes --package=github:jrcaz/prove-starter-cli prove init
+npx --yes --package=github:jrcaz/groundtruth groundtruth init
 ```
 
-The npm package has not been published yet. The command above runs the CLI from this public GitHub repository without adding it to your project's dependencies. After the package is published, the shorter command will be:
+The package is not on npm yet. This command runs the CLI from the GitHub repository without adding it to your project's dependencies.
 
-```sh
-npx prove-starter-cli init
-```
-
-Then:
-
-1. Review `.prove/PROJECT.md`. Add the commands to start the app and run its required checks, plus any setup steps Prove could not detect.
-2. Ask your agent to use the `feature-map` skill to generate the application's feature map. Initialization creates a starter inventory in `.prove/FEATURE_MAP.md`; the skill inspects the implementation to turn it into product capabilities and link existing contracts.
-3. Add contracts for important business capabilities. Start with `cp .prove/contracts/TEMPLATE.md .prove/contracts/<capability>.md`, then replace the prompts with behavior that must stay true. Link the contract from its feature map entry.
-4. Ask your coding agent to implement a change and prove it works. The Prove skill tells it to consult the project context, feature map, and relevant contracts, run appropriate checks, and report the evidence.
-
-Do not put credentials or other secrets in project context or contracts.
-
-## What Prove adds
-
-After `prove init`, the project includes these files. Existing `AGENTS.md` and `CLAUDE.md` files are kept, with a marked Prove section added to each.
+Here is what `init` printed for a Next.js project that uses Vitest and Playwright:
 
 ```text
-.agents/skills/prove/SKILL.md       Codex and OpenAI-style agent skill
-.claude/skills/prove/SKILL.md       Claude Code skill
-.agents/skills/feature-map/SKILL.md  Codex feature map skill
-.claude/skills/feature-map/SKILL.md  Claude Code feature map skill
-.prove/PROJECT.md                  Project-specific setup and verification notes
-.prove/FEATURE_MAP.md              Product capabilities, source references, and contract links
-.prove/contracts/TEMPLATE.md       Starting point for capability contracts
-.prove/.prove-managed.json         Tracks Prove-managed shared files
-AGENTS.md                          Prove instructions for compatible agents
-CLAUDE.md                          Prove instructions for Claude Code
+Detected project: Web application
+Frameworks: Next.js, React
+Languages: JavaScript/TypeScript
+Verification tools: Playwright, Vitest
+created .groundtruth/PROJECT.md
+created .groundtruth/FEATURE_MAP.md; use the feature-map skill to review and complete the starter inventory
+created .agents/skills/groundtruth/SKILL.md
+created .claude/skills/groundtruth/SKILL.md
+created .agents/skills/feature-map/SKILL.md
+created .claude/skills/feature-map/SKILL.md
+created .groundtruth/contracts/TEMPLATE.md
+updated AGENTS.md
+updated CLAUDE.md
+GroundTruth is ready. Try: "Implement this feature and prove it works."
 ```
 
-The skill guides an agent through reading project requirements, implementing a change, running relevant checks, exercising runtime behavior when appropriate, and reporting what it verified. The `doctor` command can inspect project metadata, but it does not run those checks for the agent.
+Then, in this order:
+
+1. Open `.groundtruth/PROJECT.md` and fill in how to start the app and which checks are required. The installer lists the npm scripts and tools it found; you add the setup steps it could not see.
+2. Ask your agent: `Use the feature-map skill to generate the existing application's feature map.` The starter map only lists candidate pages and routes. The skill reads the implementation and turns them into product capabilities.
+3. Write a contract for each business-critical capability. Copy the template with `cp .groundtruth/contracts/TEMPLATE.md .groundtruth/contracts/login.md`, replace the prompts with the behavior that must stay true, and link the contract from its feature map entry. Most features do not need one.
+4. Ask for a change the way you normally would, for example "Add rate limiting to login and prove it works." The agent reads the context, the map, and the relevant contracts, runs your checks, and reports what passed and what it could not verify.
+
+Do not put credentials or other secrets in any of these files.
+
+## What lands in your repository
+
+```text
+.claude/skills/groundtruth/SKILL.md     Verification workflow for Claude Code
+.agents/skills/groundtruth/SKILL.md     Same workflow for Codex and OpenAI-style agents
+.claude/skills/feature-map/SKILL.md     Feature map skill for Claude Code
+.agents/skills/feature-map/SKILL.md     Same skill for Codex and OpenAI-style agents
+.groundtruth/PROJECT.md                 How to run this project and which checks are required
+.groundtruth/FEATURE_MAP.md             What the product can do, with source, contract, and test links
+.groundtruth/contracts/TEMPLATE.md      Starting point for a capability contract
+.groundtruth/.groundtruth-managed.json  Hashes of the shared files GroundTruth manages
+AGENTS.md, CLAUDE.md                    A marked "Definition of done" section; existing text is kept
+```
+
+The two copies of each skill are identical, one per agent family so each agent finds it where it looks. `PROJECT.md`, `FEATURE_MAP.md`, and your contracts are yours. The skills and the template are shared, and `update` keeps them current.
+
+## How a verified change works
+
+With the skill installed, asking for a change sets off this sequence. The full text is in `SKILL.md` in your repository after `init`.
+
+Before touching code, the agent reads `PROJECT.md` and the feature map, finds the capabilities the request affects, and reads their contracts. It also searches `.groundtruth/contracts/` directly, so an incomplete map cannot hide a contract. It turns the request into acceptance criteria it can observe, including failure cases, and sizes the proof to the risk. Authentication, payments, and anything that can lose data get stronger proof. A new business-critical capability with no contract gets one before implementation.
+
+While implementing, the agent uses the project's own tools. It starts with focused checks for the changed behavior, then widens. When the change affects runtime behavior it exercises the running app or API and looks at UI state, responses, logs, browser console errors, and failed network requests. It checks negative paths such as invalid input and denied access, reads the actual output of every check, fixes what its change broke, and reruns. It never runs against production unless the task explicitly requires it and access is authorized.
+
+When done, the agent reports what it verified and the evidence, which checks ran and whether they passed, and what it could not verify and why. `PASS` is only for criteria backed by evidence. `BLOCKED` means missing access, environment, or tooling got in the way. If the change added, modified, or removed a capability, the agent updates the feature map entry too.
 
 ## Commands
 
-Run the commands from the target project's root. With the current GitHub install method, replace `prove` below with `npx --yes --package=github:jrcaz/prove-starter-cli prove`.
+Run from the project root. Until the package is published, replace `groundtruth` with `npx --yes --package=github:jrcaz/groundtruth groundtruth`.
 
 | Command | What it does |
 | --- | --- |
-| `prove init` | Detects project metadata, creates a missing feature map with a starter inventory, installs the shared skills and contract template, and adds or repairs the marked Prove sections in `AGENTS.md` and `CLAUDE.md`. |
-| `prove update` | Refreshes Prove-managed skills and the contract template when they have not been locally changed. It preserves project context, feature maps, and real contracts. |
-| `prove doctor` | Reports whether required Prove files and instruction sections are present, along with detected project details, npm scripts, and verification tools. Exits with a nonzero status if required setup is missing or blocked. |
-| `prove --help` | Prints command usage. |
+| `groundtruth init` | Detects the project, creates `PROJECT.md` and a starter feature map if they are missing, installs the skills and contract template, and adds or repairs the marked section in `AGENTS.md` and `CLAUDE.md`. |
+| `groundtruth update` | Refreshes the skills and contract template when you have not edited them. |
+| `groundtruth doctor` | Reports which GroundTruth files and instruction sections are present, plus the frameworks, tools, and npm scripts it detects. Exits nonzero if required setup is missing or blocked. |
+| `groundtruth --help` | Prints usage. `--version` prints the installed version. |
 
 ## What it detects
 
-Prove looks at repository files and package metadata. It recognizes common JavaScript and TypeScript frameworks, Python frameworks, Flutter and React Native projects, Tauri, Go modules, and Rust crates. It also looks for test and browser tools such as Playwright, Cypress, Vitest, Jest, pytest, Maestro, and Appium, plus npm scripts that may be useful verification commands.
+`init` and `doctor` read repository files and package metadata. They recognize common JavaScript and TypeScript frameworks, Python frameworks, Flutter and React Native, Tauri, Go modules, and Rust crates. They look for test and browser tools such as Playwright, Cypress, Vitest, Jest, pytest, Maestro, and Appium, and list the npm scripts. `PROJECT.md` keeps the ones that look like verification commands. In a monorepo, they also read the workspaces declared in `package.json` (npm and Yarn) or `pnpm-workspace.yaml` and list them in `PROJECT.md`.
 
-In a monorepo, Prove also reads the workspaces declared in `package.json` (npm and Yarn) or `pnpm-workspace.yaml`, and includes their dependencies and test configuration in detection. It lists the workspaces it found in `.prove/PROJECT.md`.
-
-Detection is a starting point, not a test of whether a tool is installed or configured correctly. Prove does not install dependencies, execute project scripts, or contact production services. Review `.prove/PROJECT.md` and correct anything the repository metadata cannot tell it.
+Detection reads metadata. It does not install dependencies, execute scripts, or check that a tool is configured correctly. Treat `PROJECT.md` as a draft and correct what the repository could not tell it.
 
 ## Feature maps
 
-A feature map answers what the current product can do. The `feature-map` skill groups capabilities into product areas, records variants and implementation status, and links source evidence and applicable verification contracts. It keeps future plans outside the current capability tree.
-
-`prove init` creates `.prove/FEATURE_MAP.md` only when it is missing. Its starter inventory lists candidate pages and API routes from default Next.js, Nuxt, SvelteKit, and Astro layouts, readable CLI executables declared in `package.json`, and existing Prove contracts. Workspaces are inspected independently. Every candidate starts as `unconfirmed`; contract references are listed for review before attaching them to capabilities.
-
-The initializer uses file conventions to find starting points. It does not inspect business behavior, resolve custom routing, or verify the running app. For other frameworks, mobile apps, background jobs, custom layouts, and capability variants, the skill inspects the source. A project with no recognizable entry points gets a map with review instructions instead of guessed capabilities.
-
-Ask your agent:
-
-```text
-Use the feature-map skill to generate the existing application's feature map.
-Use the feature-map skill to update the map for the capabilities changed in this diff.
-```
-
-A completed entry can look like this when supported by the application:
+A feature map answers one question: what can this product do right now? Each capability has a stable identifier, a status, a short description of observable behavior, and links to the source, the contracts that apply, and the tests. Future plans stay out of it. A completed entry looks like this:
 
 ```markdown
 ## Authentication
@@ -103,25 +129,48 @@ A completed entry can look like this when supported by the application:
   - Verification: [Login tests](../tests/auth/login.test.ts), runtime not checked.
 ```
 
-Source and test links are relative to `.prove/FEATURE_MAP.md`; contract links start with `contracts/`. A capability can link to multiple contracts, and several capabilities can share a contract. The Prove skill consults these links before changes and asks the feature-map skill to update affected entries when capabilities change. It also checks the contracts directory so an incomplete map cannot hide a relevant contract.
+Links are relative to `.groundtruth/FEATURE_MAP.md`, so source and test links start with `../` and contract links with `contracts/`. A capability can link several contracts, and several capabilities can share one.
 
-For an existing Prove installation, run `prove init` once to add the missing map and skill and refresh the marked agent instructions. Existing maps are kept. `prove update` refreshes the shared skill instructions; ask the agent skill to update the product map itself.
+`init` creates the map only when it is missing. The starter version lists candidate pages and API routes from the default Next.js, Nuxt, SvelteKit, and Astro layouts, CLI executables declared in `package.json`, each marked `unconfirmed`. Existing contracts go in a separate list to review before you link them. It does not read business logic or resolve custom routing. The `feature-map` skill does that part by inspecting the source. Two prompts cover most of the work:
 
-## Safe updates
+```text
+Use the feature-map skill to generate the existing application's feature map.
+Use the feature-map skill to update the map for the capabilities changed in this diff.
+```
 
-- `init` keeps an existing `.prove/PROJECT.md`, `.prove/FEATURE_MAP.md`, and existing contracts. It does not replace your project-specific instructions with detected guesses.
-- Prove marks the section it owns in `AGENTS.md` and `CLAUDE.md`. Text outside those markers is left unchanged.
-- `update` refreshes only shared skills and the contract template whose contents still match the last Prove-managed version. It preserves locally edited or unrecognized files.
-- `update` never changes `.prove/PROJECT.md`, `.prove/FEATURE_MAP.md`, or real files in `.prove/contracts/`.
-- `init` and `update` check every file before writing. If a write still fails, for example because of a permission error, they undo the changes already made, so the project is left as it was.
-- If `CLAUDE.md` is a symbolic link to `AGENTS.md` (or another file in the project), Prove edits the target once and leaves the link in place. It refuses links that point outside the project or to a missing file.
-- Prove refuses to write through any other symbolic link, such as a linked `.claude/` directory, because the change would land outside the project.
-- If the Prove markers in `AGENTS.md` or `CLAUDE.md` are unpaired, repeated, or out of order, Prove stops without changing anything and `doctor` reports the file as invalid.
-- The Prove section uses the same line endings (LF or CRLF) as the file it is added to.
+## Contracts
+
+A contract is a short Markdown file that pins down the behavior a capability must keep. The template has five parts: the purpose of the capability, the invariants written as "Given [state]" scenarios with the observable behavior that must hold, the failure and boundary cases, the proof that must run whenever the capability changes, and a place to record the evidence.
+
+Write one for each capability where a silent regression would hurt, such as login, authorization, payments, or anything that deletes data. Skip them for cosmetic work. The skill treats a contract as a requirement. It may change one only when the product requirement itself changed, never to make a failing implementation pass.
+
+## What GroundTruth does not do
+
+- It does not guarantee compliance. A skill is text the agent reads, and a determined shortcut can still skip it. The report format exists so you can check the evidence yourself.
+- It does not write contracts or complete the feature map for you. `init` creates a starter map and a template; your agent does the rest when you ask it to.
+- `doctor` checks that the GroundTruth files are present and valid. It does not check that your tests pass.
+
+## Safe to run again
+
+- `init` keeps an existing `.groundtruth/PROJECT.md`, `.groundtruth/FEATURE_MAP.md`, and any contracts. It never replaces your instructions with detected guesses.
+- `update` refreshes only skills and the contract template whose contents still match the last managed version. Files you edited are kept and reported as customized. It never touches `PROJECT.md`, the feature map, or your contracts.
+- GroundTruth marks the section it owns in `AGENTS.md` and `CLAUDE.md` with `<!-- groundtruth:managed:start -->` and `<!-- groundtruth:managed:end -->`. Text outside the markers is left alone, and the section uses the file's existing line endings. If the markers are unpaired, repeated, or out of order, `init` stops without changing anything and `doctor` reports the file as invalid.
+- `init` and `update` check every file before writing. If a write still fails, for example because of a permission error, they undo the writes already made and the project is left as it was.
+- If `CLAUDE.md` is a symbolic link to `AGENTS.md` or another file in the project, GroundTruth edits the target once and leaves the link in place. It refuses links that point outside the project, to a missing file, or to a file it manages, and it refuses to write through any other symbolic link, such as a linked `.claude/` directory.
+
+## Moving from Prove
+
+Projects set up by the earlier `prove` command have a `.prove/` directory, `prove` skills, and `<!-- prove:managed -->` markers. GroundTruth does not read those. To migrate:
+
+1. Rename the directory with `git mv .prove .groundtruth`, then delete `.groundtruth/.prove-managed.json`.
+2. Inside the moved files, replace `.prove/` with `.groundtruth/` and the name "Prove" with "GroundTruth". Relative source links in the feature map still work; only text that spells out the directory or product name changes.
+3. Delete the old skills: `.claude/skills/prove/`, `.agents/skills/prove/`, `.claude/skills/feature-map/`, and `.agents/skills/feature-map/`. The old feature-map skill points agents at `.prove/`, and once the manifest is gone `update` will not replace it. Copy out any local edits first; `init` installs fresh versions.
+4. In `AGENTS.md` and `CLAUDE.md`, delete the old section, including the `<!-- prove:managed:start -->` and `<!-- prove:managed:end -->` lines.
+5. Run `groundtruth init`. It keeps your moved context, map, and contracts, installs the new skills, and adds the new section.
 
 ## Development
 
-Prove is written in TypeScript and compiles to `dist/` with `tsc`. You need Node.js 18 or later.
+GroundTruth is written in TypeScript and compiles to `dist/` with `tsc`. You need Node.js 18 or later.
 
 ```sh
 npm install          # installs TypeScript and builds dist/ through the prepare script
@@ -130,15 +179,13 @@ npm test             # rebuilds dist/ and runs the compiled tests
 npm pack --dry-run   # lists the files that would be published
 ```
 
-Source lives in `src/`, the executable entry point is `bin/prove.ts`, and tests are in `tests/`. The published package contains only the compiled `dist/bin/` and `dist/src/` files plus `templates/`. When the CLI runs from GitHub with `npx`, npm runs the `prepare` script, which builds `dist/` before the command starts.
+Source is in `src/`, the executable entry point is `bin/groundtruth.ts`, and tests are in `tests/`. The published package contains the compiled `dist/bin/` and `dist/src/` plus `templates/`. When `npx` runs the CLI from GitHub, npm runs the `prepare` script, which builds `dist/` before the command starts.
 
-The tests use only Node's built-in test runner and temporary directories. They don't touch the network. CI runs them on Node 18, 20, 22 and 24 on Linux, and on Node 22 on macOS and Windows.
-
-The package exposes the `prove` executable through `dist/bin/prove.js`. Its package name is `prove-starter-cli`; change the `name` field in `package.json` if you publish it under another npm name or scope.
+The tests use Node's built-in test runner and temporary directories and never touch the network. CI runs them on Node 18, 20, 22, and 24 on Linux, and on Node 22 on macOS and Windows.
 
 ## Contributing
 
-Bug reports and pull requests are welcome. See the [open issues](https://github.com/jrcaz/prove-starter-cli/issues) or open a [new issue](https://github.com/jrcaz/prove-starter-cli/issues/new).
+Bug reports and pull requests are welcome. See the [open issues](https://github.com/jrcaz/groundtruth/issues) or open a [new issue](https://github.com/jrcaz/groundtruth/issues/new).
 
 ## License
 

@@ -16,7 +16,7 @@ import type {
   PolicyPlan
 } from "./types.js";
 
-const PROJECT_PATH = ".prove/PROJECT.md";
+const PROJECT_PATH = ".groundtruth/PROJECT.md";
 
 function statusLabel(status: ManagedOutcomeStatus): string {
   const labels: Record<ManagedOutcomeStatus, string> = {
@@ -39,7 +39,7 @@ function describeDetection(detection: Detection, log: Logger): void {
 }
 
 function describePolicy(plan: PolicyPlan): string {
-  if (plan.sharedWith) return `confirmed ${plan.path} (links to ${plan.target}, which holds the Prove section)`;
+  if (plan.sharedWith) return `confirmed ${plan.path} (links to ${plan.target}, which holds the GroundTruth section)`;
   const verb = plan.changed ? "updated" : "confirmed";
   return plan.target === plan.path ? `${verb} ${plan.path}` : `${verb} ${plan.path} (edited its link target ${plan.target})`;
 }
@@ -67,7 +67,7 @@ export function initProject({ cwd = process.cwd(), log = console.log }: CommandO
   log(keepFeatureMap ? `kept ${FEATURE_MAP_PATH}; feature maps are never overwritten` : `created ${FEATURE_MAP_PATH}; use the feature-map skill to review and complete the starter inventory`);
   for (const outcome of managed.outcomes) log(`${statusLabel(outcome.status)} ${outcome.path}`);
   for (const plan of policies) log(describePolicy(plan));
-  log("Prove is ready. Try: \"Implement this feature and prove it works.\"");
+  log("GroundTruth is ready. Try: \"Implement this feature and prove it works.\"");
   return { detection, outcomes: managed.outcomes, policies };
 }
 
@@ -76,7 +76,7 @@ export function updateProject({ cwd = process.cwd(), log = console.log }: Comman
   const { outcomes, writes } = planManagedContent(cwd, manifest);
   applyWrites(cwd, [...writes, manifestWrite(manifest)]);
   for (const outcome of outcomes) log(`${statusLabel(outcome.status)} ${outcome.path}`);
-  log("Update only refreshes Prove-managed skills and the contract template. Project context, feature maps, and real contracts were left untouched.");
+  log("Update only refreshes GroundTruth-managed skills and the contract template. Project context, feature maps, and real contracts were left untouched.");
   return outcomes;
 }
 
@@ -98,11 +98,11 @@ const MANAGED_LABELS: Record<ManagedInspectionStatus, string> = {
 function describePolicyStatus(relativePath: string, status: PolicyInspectionStatus): string {
   switch (status) {
     case "valid":
-      return `OK ${relativePath} Prove section`;
+      return `OK ${relativePath} GroundTruth section`;
     case "missing":
-      return `MISSING ${relativePath} Prove section`;
+      return `MISSING ${relativePath} GroundTruth section`;
     case "invalid":
-      return `INVALID ${relativePath} Prove section: markers are incomplete, repeated, or out of order`;
+      return `INVALID ${relativePath} GroundTruth section: markers are incomplete, repeated, or out of order`;
     case "blocked":
       return `BLOCKED ${relativePath}: symbolic link to a missing file or a file outside the project`;
   }
@@ -112,7 +112,7 @@ export function doctorProject({ cwd = process.cwd(), log = console.log }: Comman
   const detection = detectProject(cwd);
   const managed = inspectManagedContent(cwd, loadManifest(cwd));
   let healthy = true;
-  log("Prove installation:");
+  log("GroundTruth installation:");
   for (const item of managed) {
     log(`${MANAGED_LABELS[item.status]} ${item.path}`);
     if (item.status === "missing" || item.status === "blocked") healthy = false;
@@ -138,6 +138,6 @@ export function doctorProject({ cwd = process.cwd(), log = console.log }: Comman
   if (detection.workspaces.length) log(`Workspaces: ${detection.workspaces.join(", ")}`);
   log(`Tools: ${detection.verificationTools.length ? detection.verificationTools.join(", ") : "none detected"}`);
   if (detection.packageScripts.length) log(`npm scripts: ${detection.packageScripts.map(({ name }) => name).join(", ")}`);
-  log(healthy ? "Prove setup looks good." : "Prove setup is incomplete. Run `prove init` or resolve the missing files.");
+  log(healthy ? "GroundTruth setup looks good." : "GroundTruth setup is incomplete. Run `groundtruth init` or resolve the missing files.");
   return { healthy, detection, managed, policies };
 }

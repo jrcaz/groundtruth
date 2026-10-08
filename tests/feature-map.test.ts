@@ -82,8 +82,8 @@ test("starter maps list readable CLI entry points and keep contracts separate un
   t.after(project.clean);
   project.put("package.json", JSON.stringify({ name: "@example/payments", bin: "./bin/payments.js" }));
   project.put("bin/payments.js", "process.stdout.write('payments');\n");
-  project.put(".prove/contracts/payments/create.md", "# Create payment contract\n");
-  project.put(".prove/contracts/TEMPLATE.md", "# Template\n");
+  project.put(".groundtruth/contracts/payments/create.md", "# Create payment contract\n");
+  project.put(".groundtruth/contracts/TEMPLATE.md", "# Template\n");
 
   initProject({ cwd: project.cwd, log: silent });
   const map = project.get(FEATURE_MAP_PATH);
@@ -126,13 +126,13 @@ test("feature map links resolve for dynamic routes and filenames with Markdown c
   t.after(project.clean);
   project.put("package.json", JSON.stringify({ dependencies: { next: "1" } }));
   project.put("src/app/receipts/[receipt]/page.tsx", "export default function Receipt() {}\n");
-  project.put(".prove/contracts/receipt [details].md", "# Receipt contract\n");
+  project.put(".groundtruth/contracts/receipt [details].md", "# Receipt contract\n");
 
   initProject({ cwd: project.cwd, log: silent });
   const map = project.get(FEATURE_MAP_PATH);
   const targets = [...map.matchAll(/\]\(<([^>]+)>\)/g)].map((match) => decodeURIComponent(match[1] ?? ""));
   assert.equal(targets.length, 2);
-  for (const target of targets) assert.ok(fs.statSync(path.resolve(project.cwd, ".prove", target)).isFile(), target);
+  for (const target of targets) assert.ok(fs.statSync(path.resolve(project.cwd, ".groundtruth", target)).isFile(), target);
 });
 
 test("init and update preserve an existing feature map exactly and do not register it as managed", (t) => {
@@ -190,7 +190,7 @@ test("init refuses a symbolic feature map before writing any files", (t) => {
   const project = temporaryProject();
   t.after(project.clean);
   project.put("map.md", "# Keep this map\n");
-  fs.mkdirSync(path.join(project.cwd, ".prove"));
+  fs.mkdirSync(path.join(project.cwd, ".groundtruth"));
   if (!symlinkOrSkip(t, "../map.md", path.join(project.cwd, FEATURE_MAP_PATH), "file")) return;
   const before = snapshot(project.cwd);
 

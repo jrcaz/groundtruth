@@ -26,7 +26,7 @@ test("init refuses out-of-order markers and leaves every file unchanged", (t) =>
   project.put("AGENTS.md", `top\n${POLICY_END}\nmiddle\n${POLICY_START}\nbottom\n`);
   const before = snapshot(project.cwd);
 
-  assert.throws(() => initProject({ cwd: project.cwd, log: silent }), /AGENTS\.md has incomplete, repeated, or out-of-order Prove markers/);
+  assert.throws(() => initProject({ cwd: project.cwd, log: silent }), /AGENTS\.md has incomplete, repeated, or out-of-order GroundTruth markers/);
   assert.deepEqual(snapshot(project.cwd), before);
 });
 
@@ -48,8 +48,8 @@ test("doctor reports out-of-order markers as invalid", (t) => {
 
   const { result, output } = doctorMessages(project.cwd);
   assert.equal(result.healthy, false);
-  assert.match(output, /INVALID AGENTS\.md Prove section: markers are incomplete, repeated, or out of order/);
-  assert.match(output, /OK CLAUDE\.md Prove section/);
+  assert.match(output, /INVALID AGENTS\.md GroundTruth section: markers are incomplete, repeated, or out of order/);
+  assert.match(output, /OK CLAUDE\.md GroundTruth section/);
 });
 
 // Symbolic links between agent instruction files
@@ -72,7 +72,7 @@ test("init edits AGENTS.md once when CLAUDE.md links to it", (t) => {
     { file: "AGENTS.md", target: "AGENTS.md", changed: true },
     { file: "CLAUDE.md", target: "AGENTS.md", changed: false }
   ]);
-  assert.ok(messages.includes("confirmed CLAUDE.md (links to AGENTS.md, which holds the Prove section)"));
+  assert.ok(messages.includes("confirmed CLAUDE.md (links to AGENTS.md, which holds the GroundTruth section)"));
 
   const { result: doctor } = doctorMessages(project.cwd);
   assert.equal(doctor.healthy, true);
@@ -98,7 +98,7 @@ test("init edits the target of an instruction link that points to a nested file"
 
 test("init refuses an instruction link to a file outside the project and changes nothing", (t) => {
   const project = temporaryProject();
-  const outside = fs.mkdtempSync(path.join(os.tmpdir(), "prove-cli-outside-"));
+  const outside = fs.mkdtempSync(path.join(os.tmpdir(), "groundtruth-cli-outside-"));
   t.after(() => {
     project.clean();
     fs.rmSync(outside, { recursive: true, force: true });
@@ -123,14 +123,14 @@ test("init refuses a dangling instruction link and changes nothing", (t) => {
   assert.deepEqual(snapshot(project.cwd), before);
 });
 
-test("init refuses an instruction link to a Prove-managed file", (t) => {
+test("init refuses an instruction link to a GroundTruth-managed file", (t) => {
   const project = temporaryProject();
   t.after(project.clean);
-  project.put(".prove/PROJECT.md", "# Context\n");
-  if (!symlinkOrSkip(t, path.join(".prove", "PROJECT.md"), path.join(project.cwd, "CLAUDE.md"), "file")) return;
+  project.put(".groundtruth/PROJECT.md", "# Context\n");
+  if (!symlinkOrSkip(t, path.join(".groundtruth", "PROJECT.md"), path.join(project.cwd, "CLAUDE.md"), "file")) return;
   const before = snapshot(project.cwd);
 
-  assert.throws(() => initProject({ cwd: project.cwd, log: silent }), /which Prove manages separately/);
+  assert.throws(() => initProject({ cwd: project.cwd, log: silent }), /which GroundTruth manages separately/);
   assert.deepEqual(snapshot(project.cwd), before);
 });
 
@@ -138,7 +138,7 @@ test("init refuses an instruction link to a Prove-managed file", (t) => {
 
 test("init refuses a linked .claude directory before writing anything", (t) => {
   const project = temporaryProject();
-  const outside = fs.mkdtempSync(path.join(os.tmpdir(), "prove-cli-outside-"));
+  const outside = fs.mkdtempSync(path.join(os.tmpdir(), "groundtruth-cli-outside-"));
   t.after(() => {
     project.clean();
     fs.rmSync(outside, { recursive: true, force: true });
@@ -188,15 +188,15 @@ test("applyWrites skips writes whose content is already current", (t) => {
 
 test("init rolls back every change when the last write fails", { skip: !canTestPermissions() && "needs POSIX permissions and a non-root user" }, (t) => {
   const project = temporaryProject();
-  const proveDirectory = path.join(project.cwd, ".prove");
+  const groundtruthDirectory = path.join(project.cwd, ".groundtruth");
   t.after(() => {
-    fs.chmodSync(proveDirectory, 0o755);
+    fs.chmodSync(groundtruthDirectory, 0o755);
     project.clean();
   });
   project.put("AGENTS.md", "# Agents\n\nOriginal text.\n");
-  project.put(".prove/PROJECT.md", "# Project context\n");
-  project.put(".prove/contracts/payments.md", "# Payments\n");
-  fs.chmodSync(proveDirectory, 0o555);
+  project.put(".groundtruth/PROJECT.md", "# Project context\n");
+  project.put(".groundtruth/contracts/payments.md", "# Payments\n");
+  fs.chmodSync(groundtruthDirectory, 0o555);
   const before = snapshot(project.cwd);
 
   assert.throws(() => initProject({ cwd: project.cwd, log: silent }), /EACCES.*\. No files were changed\./);
@@ -217,25 +217,25 @@ test("init removes directories it created when an early write fails", { skip: !c
 
   assert.throws(() => initProject({ cwd: project.cwd, log: silent }), /EACCES/);
   assert.deepEqual(snapshot(project.cwd), before);
-  assert.equal(project.exists(".prove"), false);
+  assert.equal(project.exists(".groundtruth"), false);
   assert.equal(project.exists(".agents"), false);
 });
 
 test("update rolls back when the manifest cannot be written", { skip: !canTestPermissions() && "needs POSIX permissions and a non-root user" }, (t) => {
   const project = temporaryProject();
-  const proveDirectory = path.join(project.cwd, ".prove");
+  const groundtruthDirectory = path.join(project.cwd, ".groundtruth");
   t.after(() => {
-    fs.chmodSync(proveDirectory, 0o755);
+    fs.chmodSync(groundtruthDirectory, 0o755);
     project.clean();
   });
   initProject({ cwd: project.cwd, log: silent });
   // Forget the .agents skill so update must recreate it and record it in the manifest.
-  const skillPath = ".agents/skills/prove/SKILL.md";
+  const skillPath = ".agents/skills/groundtruth/SKILL.md";
   const manifest = JSON.parse(project.get(MANIFEST_PATH));
   delete manifest.managed[skillPath];
   project.put(MANIFEST_PATH, `${JSON.stringify(manifest, null, 2)}\n`);
   fs.rmSync(path.join(project.cwd, ".agents"), { recursive: true });
-  fs.chmodSync(proveDirectory, 0o555);
+  fs.chmodSync(groundtruthDirectory, 0o555);
   const before = snapshot(project.cwd);
 
   assert.throws(() => updateProject({ cwd: project.cwd, log: silent }), /EACCES.*\. No files were changed\./);
@@ -293,7 +293,7 @@ test("detection reads npm workspaces, including globs and exclusions", (t) => {
   assert.deepEqual(result.detection.frameworks, ["Next.js", "React", "Express"]);
   assert.deepEqual(result.detection.projectKinds, ["Web application", "API or server"]);
   assert.deepEqual(result.detection.verificationTools, ["Vitest", "Jest", "Playwright"]);
-  assert.match(project.get(".prove/PROJECT.md"), /^Workspaces: apps\/api, apps\/web, packages\/tools\/cli, packages\/ui$/m);
+  assert.match(project.get(".groundtruth/PROJECT.md"), /^Workspaces: apps\/api, apps\/web, packages\/tools\/cli, packages\/ui$/m);
 });
 
 test("detection reads Yarn object-style workspaces", (t) => {
@@ -342,5 +342,5 @@ test("detection without workspaces reports none and omits the line from project 
 
   const result = initProject({ cwd: project.cwd, log: silent });
   assert.deepEqual(result.detection.workspaces, []);
-  assert.doesNotMatch(project.get(".prove/PROJECT.md"), /Workspaces:/);
+  assert.doesNotMatch(project.get(".groundtruth/PROJECT.md"), /Workspaces:/);
 });

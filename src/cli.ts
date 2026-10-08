@@ -5,14 +5,14 @@ import { PACKAGE_ROOT } from "./constants.js";
 
 const packageJson = JSON.parse(readFileSync(path.join(PACKAGE_ROOT, "package.json"), "utf8")) as { version: string };
 
-const help = `Prove CLI ${packageJson.version}
+const help = `GroundTruth CLI ${packageJson.version}
 
 Usage:
-  prove <command>
+  groundtruth <command>
 
 Commands:
-  init      Detect the project, create a feature map, and install Prove guidance
-  update    Refresh unchanged, Prove-managed shared files
+  init      Detect the project, create a feature map, and install GroundTruth guidance
+  update    Refresh unchanged, GroundTruth-managed shared files
   doctor    Check installation and detected verification tools
   --help    Show this help
   --version Show the installed version`;
@@ -34,6 +34,6 @@ export async function main(args: readonly string[]): Promise<void> {
     const result = doctorProject();
     if (!result.healthy) process.exitCode = 1;
   } else {
-    throw new Error(`Unknown command '${command}'. Run 'prove --help' for usage.`);
+    throw new Error(`Unknown command '${command}'. Run 'groundtruth --help' for usage.`);
   }
 }

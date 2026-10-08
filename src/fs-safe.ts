@@ -21,7 +21,7 @@ export function targetPath(root: string, relativePath: string, { allowMissing = 
     try {
       const stat = fs.lstatSync(current);
       if (stat.isSymbolicLink()) {
-        throw new Error(`Refusing to follow a symbolic link: ${toPosix(path.relative(absoluteRoot, current))}. Prove only writes real files and directories inside the project. Replace the link with a regular file or directory, then run the command again.`);
+        throw new Error(`Refusing to follow a symbolic link: ${toPosix(path.relative(absoluteRoot, current))}. GroundTruth only writes real files and directories inside the project. Replace the link with a regular file or directory, then run the command again.`);
       }
       if (index < pieces.length - 1 && !stat.isDirectory()) {
         throw new Error(`Expected a directory at ${toPosix(path.relative(absoluteRoot, current))}, but found a file. Move it aside, then run the command again.`);
@@ -64,7 +64,7 @@ export function resolveLinkedFile(root: string, relativePath: string): LinkedFil
   }
   const relativeTarget = path.relative(fs.realpathSync(path.resolve(root)), realTarget);
   if (!relativeTarget || relativeTarget === ".." || relativeTarget.startsWith(`..${path.sep}`) || path.isAbsolute(relativeTarget)) {
-    throw new Error(`${relativePath} is a symbolic link to a file outside the project. Prove will not edit it. Replace the link with a regular file, then run the command again.`);
+    throw new Error(`${relativePath} is a symbolic link to a file outside the project. GroundTruth will not edit it. Replace the link with a regular file, then run the command again.`);
   }
   if (!fs.statSync(realTarget).isFile()) {
     throw new Error(`${relativePath} is a symbolic link to something other than a regular file. Replace the link with a regular file, then run the command again.`);

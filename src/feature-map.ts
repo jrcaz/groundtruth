@@ -156,7 +156,7 @@ function markdownText(value: string): string {
 }
 
 function sourceLink(relativePath: string): string {
-  const target = path.posix.relative(".prove", relativePath);
+  const target = path.posix.relative(".groundtruth", relativePath);
   return "[" + markdownText(relativePath) + "](<" + target.split("/").map(encodeURIComponent).join("/") + ">)";
 }
 
@@ -201,13 +201,13 @@ export function renderFeatureMap(root: string, detection: Detection): string {
   }
   if (!entries.length) lines.push("No conventional entry points were discovered. Inspect the application's screens, handlers, commands, and jobs with the feature-map skill to populate this section.", "");
 
-  const contracts = sourceFiles(root, ".prove/contracts", notes)
+  const contracts = sourceFiles(root, ".groundtruth/contracts", notes)
     .filter((file) => file.endsWith(".md") && path.posix.basename(file).toUpperCase() !== "TEMPLATE.MD");
   lines.push("## Contract references awaiting review", "", "A contract describes required behavior. Confirm its implementation and link it to the appropriate capability.", "");
   if (contracts.length) lines.push(...contracts.map((file) => "- " + sourceLink(file)));
   else lines.push("No existing capability contracts were found.");
   lines.push("", "## Review notes", "",
-    "- The initializer scans default Next.js, Nuxt, SvelteKit, and Astro page or API directories, declared npm executables, and existing Prove contracts. It does not infer capabilities from dependencies or arbitrary folder names.",
+    "- The initializer scans default Next.js, Nuxt, SvelteKit, and Astro page or API directories, declared npm executables, and existing GroundTruth contracts. It does not infer capabilities from dependencies or arbitrary folder names.",
     "- Use the feature-map skill to inspect other frameworks, custom source layouts, API registrations, mobile screens, background jobs, and capability variants.",
     "- Confirm source behavior before changing an entry to implemented, partial, or disabled. Record runtime verification separately.");
   if (detection.workspaces.length) lines.push("- Declared workspaces to review: " + detection.workspaces.map(markdownText).join(", ") + ".");
