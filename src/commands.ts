@@ -92,13 +92,16 @@ export function migrateProject({ cwd = process.cwd(), log = console.log }: Comma
   applyWrites(cwd, plan.writes);
   for (const action of plan.actions) log(action);
   for (const directory of plan.emptied) {
-    if (removeEmptyDirectory(cwd, directory)) log(`removed ${directory}/`);
+    const result = removeEmptyDirectory(cwd, directory);
+    if (result === "removed") log(`removed ${directory}/`);
+    else if (result === "kept") log(`kept ${directory}/; it still contains files Prove did not create`);
   }
   try {
     initProject({ cwd, log });
   } catch (error) {
+    // migrate checks init's preconditions first, so this is rare, such as a permission error.
     if (error instanceof Error) {
-      const reason = error.message.replace(/ No files were changed\.$/, "");
+      const reason = error.message.replace(/(?:; no content was changed| No files were changed)\.$/, ".");
       error.message = `The Prove files were migrated, but the GroundTruth setup did not finish: ${reason} Fix the problem, then run \`groundtruth init\`.`;
     }
     throw error;

@@ -94,7 +94,7 @@ test("groundtruth init and update refuse a Prove setup, doctor reports it, and m
   for (const command of ["init", "update"]) {
     const refused = groundtruth(project.cwd, command);
     assert.equal(refused.status, 1);
-    assert.match(refused.stderr, /^groundtruth: Found a setup from Prove, the earlier name of GroundTruth: \.prove\/, \.agents\/skills\/prove\/SKILL\.md, \.claude\/skills\/prove\/SKILL\.md, AGENTS\.md Prove section, CLAUDE\.md Prove section\. Run `groundtruth migrate` instead\..* No files were changed\.$/m);
+    assert.match(refused.stderr, /^groundtruth: Found a setup from Prove, the earlier name of GroundTruth: \.prove\/, \.agents\/skills\/prove\/SKILL\.md, \.claude\/skills\/prove\/SKILL\.md, \.agents\/skills\/feature-map\/SKILL\.md, \.claude\/skills\/feature-map\/SKILL\.md, AGENTS\.md Prove section, CLAUDE\.md Prove section\. Run `groundtruth migrate` instead\..* No files were changed\.$/m);
   }
   assert.deepEqual(snapshot(project.cwd), before);
 

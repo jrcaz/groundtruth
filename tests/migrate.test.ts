@@ -158,21 +158,123 @@ test("migrate keeps CRLF line endings in instruction files", (t) => {
   assert.equal(project.get("AGENTS.md"), `# Team notes\r\n\r\n${renderPolicySection("\r\n")}\r\n\r\nMore notes.\r\n`);
 });
 
+test("migrate moves Markdown that is not UTF-8 unchanged and says so", (t) => {
+  const project = temporaryProject();
+  t.after(project.clean);
+  legacySetup(project);
+  const latin1 = Buffer.from("# Caf\xe9 contract\n\nSee .prove/PROJECT.md.\n", "latin1");
+  fs.writeFileSync(path.join(project.cwd, ".prove/contracts/cafe.md"), latin1);
+
+  const { messages } = migrate(project.cwd);
+  assert.deepEqual(fs.readFileSync(path.join(project.cwd, ".groundtruth/contracts/cafe.md")), latin1);
+  assert.ok(messages.includes("moved .prove/contracts/cafe.md to .groundtruth/contracts/cafe.md unchanged; it is not UTF-8 text, so Prove paths inside it were not renamed"), messages.join("\n"));
+});
+
+test("migrate checks what would stop init before it moves anything", (t) => {
+  const project = temporaryProject();
+  t.after(project.clean);
+  legacySetup(project);
+  project.put("CLAUDE.md", `${POLICY_START}\n`);
+  project.put(".groundtruth/.groundtruth-managed.json", "{");
+  let before = snapshot(project.cwd);
+
+  assert.throws(() => migrate(project.cwd), /^- Cannot read \.groundtruth\/\.groundtruth-managed\.json: invalid JSON\./m);
+  assert.deepEqual(snapshot(project.cwd), before);
+
+  fs.rmSync(path.join(project.cwd, ".groundtruth"), { recursive: true });
+  before = snapshot(project.cwd);
+  assert.throws(() => migrate(project.cwd), /^- CLAUDE\.md has incomplete, repeated, or out-of-order GroundTruth markers\. Resolve them manually\.$/m);
+  assert.deepEqual(snapshot(project.cwd), before);
+});
+
+test("migrate accepts unedited Prove files checked out with Windows line endings", (t) => {
+  const project = temporaryProject();
+  t.after(project.clean);
+  legacySetup(project);
+  for (const skill of [".claude/skills/prove/SKILL.md", ".agents/skills/feature-map/SKILL.md", ".prove/contracts/TEMPLATE.md"]) {
+    project.put(skill, project.get(skill).replaceAll("\n", "\r\n"));
+  }
+
+  migrate(project.cwd);
+  assert.deepEqual(leftovers(project.cwd), []);
+  assert.equal(doctorProject({ cwd: project.cwd, log: silent }).healthy, true);
+});
+
+test("migrate keeps an edited template, skips files already in place, and reports leftover skill files", (t) => {
+  const project = temporaryProject();
+  t.after(project.clean);
+  legacySetup(project);
+  project.put(".prove/contracts/TEMPLATE.md", "# Contract: [capability]\n\nOur own prompts.\n");
+  project.put(".groundtruth/contracts/login.md", project.get(".prove/contracts/login.md"));
+  project.put(".claude/skills/prove/notes.md", "local notes\n");
+
+  const { messages } = migrate(project.cwd);
+  assert.ok(messages.includes("moved .prove/contracts/TEMPLATE.md to .groundtruth/contracts/TEMPLATE.md"), messages.join("\n"));
+  assert.ok(messages.includes("removed .prove/contracts/login.md; .groundtruth/contracts/login.md already has the same content"));
+  assert.ok(messages.includes("kept .claude/skills/prove/; it still contains files Prove did not create"));
+  assert.equal(project.get(".groundtruth/contracts/TEMPLATE.md"), "# Contract: [capability]\n\nOur own prompts.\n");
+  assert.equal(project.get(".claude/skills/prove/notes.md"), "local notes\n");
+  assert.deepEqual(findLegacySetup(project.cwd), []);
+});
+
+test("migrate refuses an unreadable Prove manifest", (t) => {
+  const project = temporaryProject();
+  t.after(project.clean);
+  legacySetup(project);
+  project.put(".prove/.prove-managed.json", "not json");
+  const before = snapshot(project.cwd);
+
+  assert.throws(() => migrate(project.cwd), /Cannot read \.prove\/\.prove-managed\.json: invalid JSON\./);
+  assert.deepEqual(snapshot(project.cwd), before);
+});
+
+test("migrate keeps paragraphs apart when the Prove section touched the next one", (t) => {
+  const project = temporaryProject();
+  t.after(project.clean);
+  legacySetup(project);
+  project.put("AGENTS.md", `# Notes\n\n${LEGACY_SECTION}\nMore notes.\n\n${SECTION}\n`);
+
+  migrate(project.cwd);
+  assert.equal(project.get("AGENTS.md"), `# Notes\n\nMore notes.\n\n${SECTION}\n`);
+});
+
+test("legacy detection ignores a plain .prove file and finds old feature-map skills on their own", (t) => {
+  const project = temporaryProject();
+  t.after(project.clean);
+  project.put(".prove", "--state=save\n");
+  project.put(".claude/skills/feature-map/SKILL.md", "Our own feature-map skill.\n");
+  assert.deepEqual(findLegacySetup(project.cwd), []);
+  assert.deepEqual(migrate(project.cwd).result, { migrated: false });
+
+  const oldSkill = "Maintain `.prove/FEATURE_MAP.md`.\n";
+  project.put(".agents/skills/feature-map/SKILL.md", oldSkill);
+  assert.deepEqual(findLegacySetup(project.cwd), [".agents/skills/feature-map/SKILL.md"]);
+  assert.throws(() => migrate(project.cwd), /^- \.agents\/skills\/feature-map\/SKILL\.md has local edits, or Prove has no record of installing it\./m);
+});
+
+test("legacy detection still finds a Prove section when another instruction link is broken", (t) => {
+  const project = temporaryProject();
+  t.after(project.clean);
+  project.put("AGENTS.md", `${LEGACY_SECTION}\n`);
+  if (!symlinkOrSkip(t, "missing.md", path.join(project.cwd, "CLAUDE.md"), "file")) return;
+  assert.deepEqual(findLegacySetup(project.cwd), ["AGENTS.md Prove section"]);
+});
+
 test("rewriteLegacyText renames Prove paths and generated headings but not the verb", () => {
   assert.equal(
     rewriteLegacyText([
       "# Prove project context",
-      "See `.prove/contracts/*.md` and [map](../.prove/FEATURE_MAP.md); ignore .prove-managed.json.",
+      "See `.prove/contracts/*.md`, [map](../.prove/FEATURE_MAP.md), and the `.prove` directory.",
       "The initializer scans existing Prove contracts.",
       "Use the `prove` skill.",
-      "Prove that checkout totals match. Run proof.prove and example.prove/x."
+      "Prove that checkout totals match. Keep proof.prove, example.prove/x, .prove-ui/, and .prove.yml."
     ].join("\r\n")),
     [
       "# GroundTruth project context",
-      "See `.groundtruth/contracts/*.md` and [map](../.groundtruth/FEATURE_MAP.md); ignore .groundtruth-managed.json.",
+      "See `.groundtruth/contracts/*.md`, [map](../.groundtruth/FEATURE_MAP.md), and the `.groundtruth` directory.",
       "The initializer scans existing GroundTruth contracts.",
       "Use the `groundtruth` skill.",
-      "Prove that checkout totals match. Run proof.prove and example.prove/x."
+      "Prove that checkout totals match. Keep proof.prove, example.prove/x, .prove-ui/, and .prove.yml."
     ].join("\r\n")
   );
 });

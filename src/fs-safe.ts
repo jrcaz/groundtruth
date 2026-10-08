@@ -136,13 +136,13 @@ export function writeText(root: string, relativePath: string, content: string | 
   return createdDirectory;
 }
 
-// Removes a directory inside the project if it is empty. Returns true if it was removed.
-export function removeEmptyDirectory(root: string, relativePath: string): boolean {
+// Removes a directory inside the project if it is empty.
+export function removeEmptyDirectory(root: string, relativePath: string): "removed" | "missing" | "kept" {
   try {
     fs.rmdirSync(targetPath(root, relativePath, { allowMissing: false }));
-    return true;
-  } catch {
-    return false;
+    return "removed";
+  } catch (error) {
+    return errorCode(error) === "ENOENT" ? "missing" : "kept";
   }
 }
 

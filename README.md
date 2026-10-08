@@ -161,7 +161,7 @@ Write one for each capability where a silent regression would hurt, such as logi
 
 ## Moving from Prove
 
-GroundTruth used to be called Prove. A project set up with `prove init` has a `.prove/` directory, `prove` skills, and a section in `AGENTS.md` and `CLAUDE.md` marked with `<!-- prove:managed:start -->` and `<!-- prove:managed:end -->`. GroundTruth does not read any of those. Running GroundTruth next to them would add a second, separate setup, so `init` and `update` refuse to run while they are present, and `doctor` lists them.
+GroundTruth used to be called Prove. A project set up with `prove init` has a `.prove/` directory, `prove` skills, and a section in `AGENTS.md` and `CLAUDE.md` marked with `<!-- prove:managed:start -->` and `<!-- prove:managed:end -->`. GroundTruth does not use any of those. Running GroundTruth next to them would add a second, separate setup, so `init` and `update` refuse to run while they are present, or while a `feature-map` skill still points at `.prove/`, and `doctor` lists them.
 
 From the project root, preferably with a clean Git working tree so you can review the change, run:
 
@@ -203,17 +203,24 @@ GroundTruth is ready. Try: "Implement this feature and prove it works."
 
 `migrate` makes these changes and then runs `init`:
 
-- It moves everything in `.prove/` to `.groundtruth/`, including your project context, feature map, and contracts. In moved Markdown files it changes `.prove` paths to `.groundtruth` and renames the headings and phrases Prove generated, such as `# Prove project context` and "the `prove` skill". Other files move unchanged.
-- It deletes the old manifest. It also removes the `prove` skills, the old `feature-map` skills, and the old contract template, but only if you never edited them. The hashes in `.prove/.prove-managed.json` tell it which files those are. `init` then installs the current versions.
+- It moves everything in `.prove/` to `.groundtruth/`, including your project context, feature map, and contracts. In moved Markdown files it changes `.prove` paths to `.groundtruth`, the `# Prove project context` heading and the "existing Prove contracts" note that Prove generated, and mentions of the `prove` skill. Other files keep their content.
+- It deletes the old manifest. It removes the `prove` skills and the old `feature-map` skills, but only if you never edited them. The hashes in `.prove/.prove-managed.json` tell it which files those are. The old contract template is removed the same way, and an edited template moves with your other files. `init` then installs the current versions.
 - It replaces the old section in `AGENTS.md` and `CLAUDE.md` with the GroundTruth section, in the same place. If a file already has a GroundTruth section, it removes only the old one.
 
-It checks every file before it changes anything. It stops without changing files and lists every problem when:
+Before it changes anything, it checks every file and runs the checks `init` would run. It stops without changing files and lists every problem when:
 
 - A `prove` or `feature-map` skill has local edits, or `.prove/.prove-managed.json` is missing so it cannot tell. Copy your edits somewhere safe and delete the file. After migrating, add the edits to the new skill.
 - A file exists in both `.prove/` and `.groundtruth/` with different content, for example because `groundtruth init` ran before the project was migrated. Keep one copy and delete the other.
 - The old markers are unpaired, repeated, or out of order.
+- `.prove/.prove-managed.json` is not valid, `.prove/` contains a symbolic link or anything other than files and directories, or `init` would refuse the project, for example because of broken GroundTruth markers.
 
-`migrate` does not change other mentions of "Prove" in your own text, because the word is also a verb. If your notes or contracts name the tool, search for them after migrating.
+What `migrate` does not do:
+
+- It does not change other mentions of "Prove" in your own text, because the word is also a verb. If your notes or contracts name the tool, search for them after migrating.
+- It does not change `.prove` references outside the moved Markdown files, such as in CI configuration, `.gitignore`, scripts, or text outside the marked section in `AGENTS.md`.
+- It replaces everything between the old markers, including text you added there, as `init` always has.
+- It does not keep file permissions or empty directories from `.prove/`. A Markdown file that is not UTF-8 moves without its paths renamed, and the output says so.
+- If the `init` step fails after the files moved, for example because of a permission error, the files stay moved. Fix the problem and run `groundtruth init`.
 
 To migrate by hand instead:
 

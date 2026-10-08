@@ -1,9 +1,9 @@
 import fs from "node:fs";
 import path from "node:path";
-import { lineEnding, packageContent, POLICY_FILES, policyMarkerState, renderPolicySection } from "./content.js";
+import { lineEnding, planManagedContent, planPolicies, POLICY_FILES, policyMarkerState, renderPolicySection } from "./content.js";
 import { readBytes, readText, resolveLinkedFile, targetPath } from "./fs-safe.js";
 import { hash, loadManifest } from "./manifest.js";
-import type { FileWrite } from "./types.js";
+import type { FileWrite, Manifest } from "./types.js";
 
 // GroundTruth was called Prove before it was renamed. Prove kept its files in
 // `.prove/`, installed a `prove` skill, and marked its section in the agent
@@ -23,6 +23,7 @@ const LEGACY_SKILLS: Readonly<Record<string, string>> = {
   ".claude/skills/feature-map/SKILL.md": ".claude/skills/feature-map/SKILL.md"
 };
 const LEGACY_SKILL_DIRECTORIES = [".agents/skills/prove", ".claude/skills/prove"];
+const FEATURE_MAP_SKILLS = [".agents/skills/feature-map/SKILL.md", ".claude/skills/feature-map/SKILL.md"];
 
 export interface MigrationPlan {
   writes: FileWrite[];
@@ -31,23 +32,40 @@ export interface MigrationPlan {
   actions: string[];
 }
 
-// Also true for a symbolic link, so a linked `.prove/` is reported and then refused.
-function exists(root: string, relativePath: string): boolean {
+// Does not follow symbolic links, so a linked `.prove/` is reported and then refused.
+function lstat(root: string, relativePath: string): fs.Stats | null {
   try {
-    fs.lstatSync(path.join(path.resolve(root), relativePath));
-    return true;
+    return fs.lstatSync(path.join(path.resolve(root), relativePath));
   } catch {
-    return false;
+    return null;
   }
 }
 
+// A plain file named `.prove` belongs to another tool, such as Perl's `prove`.
+function hasLegacyDirectory(root: string): boolean {
+  const stat = lstat(root, LEGACY_DIRECTORY);
+  return stat !== null && (stat.isDirectory() || stat.isSymbolicLink());
+}
+
+// A feature-map skill that still points agents at `.prove/` came from Prove.
+function isLegacyFeatureMapSkill(content: Buffer): boolean {
+  return content.includes(`${LEGACY_DIRECTORY}/`);
+}
+
 // Instruction files to check, with links resolved and each target listed once.
-function policyTargets(root: string): Array<{ path: string; content: string }> {
+function policyTargets(root: string, { skipBroken = false } = {}): Array<{ path: string; content: string }> {
   const targets = new Map<string, string>();
   for (const relativePath of POLICY_FILES) {
-    const target = resolveLinkedFile(root, relativePath).path;
-    if (targets.has(target)) continue;
-    const content = readText(root, target);
+    let target: string;
+    let content: string | null;
+    try {
+      target = resolveLinkedFile(root, relativePath).path;
+      if (targets.has(target)) continue;
+      content = readText(root, target);
+    } catch (error) {
+      if (skipBroken) continue;
+      throw error;
+    }
     if (content !== null) targets.set(target, content);
   }
   return [...targets].map(([target, content]) => ({ path: target, content }));
@@ -61,17 +79,21 @@ function hasLegacyMarkers(content: string): boolean {
 // here, and `init`, `update`, and `doctor` use it to send the user to `migrate`.
 export function findLegacySetup(root: string): string[] {
   const found: string[] = [];
-  if (exists(root, LEGACY_DIRECTORY)) found.push(`${LEGACY_DIRECTORY}/`);
+  if (hasLegacyDirectory(root)) found.push(`${LEGACY_DIRECTORY}/`);
   for (const directory of LEGACY_SKILL_DIRECTORIES) {
-    if (exists(root, `${directory}/SKILL.md`)) found.push(`${directory}/SKILL.md`);
+    if (lstat(root, `${directory}/SKILL.md`)) found.push(`${directory}/SKILL.md`);
   }
-  let targets: Array<{ path: string; content: string }> = [];
-  try {
-    targets = policyTargets(root);
-  } catch {
-    // doctor reports broken instruction links separately.
+  for (const skill of FEATURE_MAP_SKILLS) {
+    let content: Buffer | null = null;
+    try {
+      content = readBytes(root, skill);
+    } catch {
+      // doctor reports linked skill paths separately.
+    }
+    if (content && isLegacyFeatureMapSkill(content)) found.push(skill);
   }
-  for (const target of targets) {
+  // doctor reports broken instruction links separately.
+  for (const target of policyTargets(root, { skipBroken: true })) {
     if (hasLegacyMarkers(target.content)) found.push(`${target.path} Prove section`);
   }
   return found;
@@ -81,7 +103,7 @@ export function findLegacySetup(root: string): string[] {
 // "Prove" is also a verb, so other uses of the word are left alone.
 export function rewriteLegacyText(content: string): string {
   return content
-    .replace(/(?<![\w.-])\.prove(?!\w)/g, DIRECTORY)
+    .replace(/(?<![\w.-])\.prove(?!\w|[.-]\w)/g, DIRECTORY)
     .replace(/^# Prove project context(?=\r?$)/gm, "# GroundTruth project context")
     .replace(/existing Prove contracts/g, "existing GroundTruth contracts")
     .replace(/`prove` skill/g, "`groundtruth` skill");
@@ -98,46 +120,71 @@ function listFiles(root: string, directory: string, files: string[], directories
   }
 }
 
+// Removes a marked section and the blank line that separated it, keeping the
+// text on both sides in separate paragraphs.
 function removeSection(content: string, start: string, end: string, eol: string): string {
   let before = content.slice(0, content.indexOf(start));
   let after = content.slice(content.indexOf(end) + end.length);
   if (after.startsWith(eol)) after = after.slice(eol.length);
   if (!before) while (after.startsWith(eol)) after = after.slice(eol.length);
-  else if (before.endsWith(eol + eol)) before = before.slice(0, -eol.length);
+  else if (before.endsWith(eol + eol) && (!after || after.startsWith(eol))) before = before.slice(0, -eol.length);
   return before + after;
+}
+
+// Rewrites a moved Markdown file. A file that is not valid UTF-8 would be damaged
+// by decoding, so it moves unchanged.
+function migrateContent(file: string, content: Buffer): { content: Buffer; rewritten: boolean } {
+  if (!/\.md$/i.test(file)) return { content, rewritten: true };
+  const text = content.toString("utf8");
+  if (!Buffer.from(text, "utf8").equals(content)) return { content, rewritten: false };
+  return { content: Buffer.from(rewriteLegacyText(text), "utf8"), rewritten: true };
+}
+
+function message(error: unknown): string {
+  return error instanceof Error ? error.message.replace(/; no content was changed\.$/, ".") : String(error);
 }
 
 // Plans every change needed to turn a Prove setup into the files GroundTruth
 // expects. Throws, listing every problem, if any file cannot be migrated safely.
 export function planMigration(root: string): MigrationPlan {
-  const legacyManifest = loadManifest(root, LEGACY_MANIFEST_PATH);
-  const unedited = (relativePath: string, content: Buffer): boolean =>
-    legacyManifest.managed[relativePath] === hash(content);
+  const hasDirectory = hasLegacyDirectory(root);
+  const legacyManifest: Manifest = hasDirectory ? loadManifest(root, LEGACY_MANIFEST_PATH) : { version: 1, managed: {} };
+  const unedited = (relativePath: string, content: Buffer): boolean => {
+    const recorded = legacyManifest.managed[relativePath];
+    // A checkout with Windows line endings changes the hash, not the file.
+    return recorded !== undefined && (recorded === hash(content) || recorded === hash(content.toString("utf8").replace(/\r\n/g, "\n")));
+  };
   const writes: FileWrite[] = [];
   const emptied: string[] = [];
   const actions: string[] = [];
   const problems: string[] = [];
 
+  // migrate runs init after moving the files. Check now what would stop init,
+  // so a migration is not left half done. Moving the files does not change these checks.
+  try {
+    planManagedContent(root, loadManifest(root));
+    planPolicies(root);
+  } catch (error) {
+    problems.push(message(error));
+  }
+
   const files: string[] = [];
   const directories: string[] = [];
-  if (exists(root, LEGACY_DIRECTORY)) listFiles(root, LEGACY_DIRECTORY, files, directories);
+  if (hasDirectory) listFiles(root, LEGACY_DIRECTORY, files, directories);
   for (const file of files) {
+    if (file === LEGACY_MANIFEST_PATH) continue;
     const content = readBytes(root, file) ?? Buffer.alloc(0);
-    if (file === LEGACY_MANIFEST_PATH) {
-      writes.push({ path: file, content: null });
-      continue;
-    }
     if (file === LEGACY_TEMPLATE_PATH && unedited(file, content)) {
       writes.push({ path: file, content: null });
       actions.push(`removed ${file}; it was never edited, so the current template replaces it`);
       continue;
     }
     const destination = DIRECTORY + file.slice(LEGACY_DIRECTORY.length);
-    const migrated = /\.md$/i.test(file) ? Buffer.from(rewriteLegacyText(content.toString("utf8")), "utf8") : content;
+    const { content: migrated, rewritten } = migrateContent(file, content);
     const existing = readBytes(root, destination);
     if (existing === null) {
       writes.push({ path: destination, content: migrated }, { path: file, content: null });
-      actions.push(`moved ${file} to ${destination}`);
+      actions.push(rewritten ? `moved ${file} to ${destination}` : `moved ${file} to ${destination} unchanged; it is not UTF-8 text, so Prove paths inside it were not renamed`);
     } else if (existing.equals(migrated)) {
       writes.push({ path: file, content: null });
       actions.push(`removed ${file}; ${destination} already has the same content`);
@@ -145,12 +192,15 @@ export function planMigration(root: string): MigrationPlan {
       problems.push(`${destination} already exists and differs from ${file}. Keep one of them: delete or rename the other.`);
     }
   }
+  // The old manifest goes last, so an interrupted migration can still tell which files were never edited.
+  if (files.includes(LEGACY_MANIFEST_PATH)) writes.push({ path: LEGACY_MANIFEST_PATH, content: null });
   emptied.push(...directories.reverse());
 
   for (const [skill, replacement] of Object.entries(LEGACY_SKILLS)) {
     const content = readBytes(root, skill);
     if (content === null) continue;
-    if (skill === replacement && content.equals(Buffer.from(packageContent(replacement), "utf8"))) continue;
+    // A feature-map skill that does not point at `.prove/` is not Prove's; init handles it.
+    if (skill === replacement && !isLegacyFeatureMapSkill(content)) continue;
     if (unedited(skill, content)) {
       writes.push({ path: skill, content: null });
       actions.push(`removed ${skill}`);
@@ -163,12 +213,11 @@ export function planMigration(root: string): MigrationPlan {
   for (const target of policyTargets(root)) {
     const { content } = target;
     const legacyState = policyMarkerState(content, LEGACY_POLICY_START, LEGACY_POLICY_END);
-    if (legacyState === "absent") continue;
     const state = policyMarkerState(content);
+    // Broken GroundTruth markers are reported by the init check above.
+    if (legacyState === "absent" || state === "invalid") continue;
     if (legacyState === "invalid") {
       problems.push(`${target.path} has incomplete, repeated, or out-of-order Prove markers. Remove the old Prove section by hand.`);
-    } else if (state === "invalid") {
-      problems.push(`${target.path} has incomplete, repeated, or out-of-order GroundTruth markers. Resolve them by hand.`);
     } else if (state === "valid") {
       writes.push({ path: target.path, content: removeSection(content, LEGACY_POLICY_START, LEGACY_POLICY_END, lineEnding(content)) });
       actions.push(`removed the Prove section from ${target.path}; it already has a GroundTruth section`);
