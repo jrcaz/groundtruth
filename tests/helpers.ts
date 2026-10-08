@@ -3,6 +3,7 @@ import os from "node:os";
 import path from "node:path";
 import type { TestContext } from "node:test";
 import { errorCode } from "../src/fs-safe.js";
+import { hash } from "../src/manifest.js";
 
 export interface TemporaryProject {
   cwd: string;
@@ -79,3 +80,29 @@ export function canTestPermissions(): boolean {
 }
 
 export function silent(): void {}
+
+export const LEGACY_START = "<!-- prove:managed:start -->";
+export const LEGACY_END = "<!-- prove:managed:end -->";
+export const LEGACY_SECTION = [LEGACY_START, "## Definition of done: prove the change", "", "1. Use the `prove` skill and read `.prove/PROJECT.md`.", LEGACY_END].join("\n");
+
+// Recreates what `prove init` left in a project. The old manifest records the
+// hashes of the shared files, so they count as never edited. The first Prove
+// version had no feature map, which `featureMap: false` reproduces.
+export function legacySetup(project: TemporaryProject, { featureMap = true } = {}): void {
+  const skill = "---\nname: prove\n---\n\n# Prove\n\nRead `.prove/PROJECT.md`.\n";
+  const mapSkill = "---\nname: feature-map\n---\n\nMaintain `.prove/FEATURE_MAP.md`.\n";
+  const managed: Record<string, string> = {
+    ".agents/skills/prove/SKILL.md": skill,
+    ".claude/skills/prove/SKILL.md": skill,
+    ".prove/contracts/TEMPLATE.md": "# Contract: [capability]\n",
+    ...(featureMap ? { ".agents/skills/feature-map/SKILL.md": mapSkill, ".claude/skills/feature-map/SKILL.md": mapSkill } : {})
+  };
+  for (const [relativePath, content] of Object.entries(managed)) project.put(relativePath, content);
+  const hashes = Object.fromEntries(Object.entries(managed).map(([relativePath, content]) => [relativePath, hash(content)]));
+  project.put(".prove/.prove-managed.json", `${JSON.stringify({ version: 1, managed: hashes }, null, 2)}\n`);
+  project.put(".prove/PROJECT.md", "# Prove project context\n\nStart the app with `npm run dev`.\nRead `.prove/FEATURE_MAP.md` for capabilities.\n");
+  if (featureMap) project.put(".prove/FEATURE_MAP.md", "# Feature map\n\n- Login, `authentication.login`, implemented\n  - Contracts: [Login](contracts/login.md)\n");
+  project.put(".prove/contracts/login.md", "# Contract: Login\n\nProve that a locked account cannot sign in.\n");
+  project.put("AGENTS.md", `# Team notes\n\nKeep commits small.\n\n${LEGACY_SECTION}\n`);
+  project.put("CLAUDE.md", `${LEGACY_SECTION}\n`);
+}

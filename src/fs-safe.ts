@@ -72,14 +72,18 @@ export function resolveLinkedFile(root: string, relativePath: string): LinkedFil
   return { path: toPosix(relativeTarget), linkedFrom: relativePath };
 }
 
-export function readText(root: string, relativePath: string): string | null {
+export function readBytes(root: string, relativePath: string): Buffer | null {
   const absolutePath = targetPath(root, relativePath);
   try {
-    return fs.readFileSync(absolutePath, "utf8");
+    return fs.readFileSync(absolutePath);
   } catch (error) {
     if (errorCode(error) === "ENOENT") return null;
     throw error;
   }
+}
+
+export function readText(root: string, relativePath: string): string | null {
+  return readBytes(root, relativePath)?.toString("utf8") ?? null;
 }
 
 function removeEmptyDirectories(fromDirectory: string, stopAt: string): void {
@@ -115,7 +119,7 @@ function firstMissingDirectory(root: string, directory: string): string | undefi
 }
 
 // Writes atomically. Returns the first directory this call created, if any.
-export function writeText(root: string, relativePath: string, content: string): string | undefined {
+export function writeText(root: string, relativePath: string, content: string | Uint8Array): string | undefined {
   const absolutePath = targetPath(root, relativePath);
   const createdDirectory = firstMissingDirectory(root, path.dirname(absolutePath));
   const temporaryPath = `${absolutePath}.${process.pid}.${Date.now()}.tmp`;
@@ -132,21 +136,42 @@ export function writeText(root: string, relativePath: string, content: string): 
   return createdDirectory;
 }
 
+// Removes a directory inside the project if it is empty.
+export function removeEmptyDirectory(root: string, relativePath: string): "removed" | "missing" | "kept" {
+  try {
+    fs.rmdirSync(targetPath(root, relativePath, { allowMissing: false }));
+    return "removed";
+  } catch (error) {
+    return errorCode(error) === "ENOENT" ? "missing" : "kept";
+  }
+}
+
 interface AppliedWrite {
   relativePath: string;
-  previous: string | null;
+  previous: Buffer | null;
   createdDirectory: string | undefined;
 }
 
-// Applies every write or none of them. If a write fails, files written earlier
-// are restored to their previous content, new files are removed, and
-// directories created along the way are removed if they are empty.
+function isCurrent(previous: Buffer | null, content: FileWrite["content"]): boolean {
+  if (content === null || previous === null) return content === previous;
+  return previous.equals(typeof content === "string" ? Buffer.from(content, "utf8") : content);
+}
+
+// Applies every write or none of them. A write whose content is null removes the
+// file. If a write fails, files changed or removed earlier are restored to their
+// previous content, new files are removed, and directories created along the
+// way are removed if they are empty.
 export function applyWrites(root: string, writes: readonly FileWrite[]): void {
   const applied: AppliedWrite[] = [];
   try {
     for (const { path: relativePath, content } of writes) {
-      const previous = readText(root, relativePath);
-      if (previous === content) continue;
+      const previous = readBytes(root, relativePath);
+      if (isCurrent(previous, content)) continue;
+      if (content === null) {
+        fs.rmSync(targetPath(root, relativePath));
+        applied.push({ relativePath, previous, createdDirectory: undefined });
+        continue;
+      }
       const createdDirectory = writeText(root, relativePath, content);
       applied.push({ relativePath, previous, createdDirectory });
     }

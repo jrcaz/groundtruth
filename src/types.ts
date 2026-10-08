@@ -7,7 +7,8 @@ export interface CommandOptions {
 
 export interface FileWrite {
   path: string;
-  content: string;
+  // Text or bytes to write, or null to remove the file.
+  content: string | Uint8Array | null;
 }
 
 export interface Manifest {

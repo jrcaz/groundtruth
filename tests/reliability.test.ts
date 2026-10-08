@@ -174,6 +174,21 @@ test("applyWrites restores earlier writes when a later write fails", (t) => {
   assert.deepEqual(snapshot(project.cwd), before);
 });
 
+test("applyWrites restores removed files when a later write fails", (t) => {
+  const project = temporaryProject();
+  t.after(project.clean);
+  project.put("old/notes.md", "keep me\n");
+  project.put("blocker", "a file\n");
+  const before = snapshot(project.cwd);
+
+  assert.throws(() => applyWrites(project.cwd, [
+    { path: "new/notes.md", content: "keep me\n" },
+    { path: "old/notes.md", content: null },
+    { path: "blocker/impossible.md", content: "fails\n" }
+  ]), /Expected a directory at blocker, but found a file\..* No files were changed\./);
+  assert.deepEqual(snapshot(project.cwd), before);
+});
+
 test("applyWrites skips writes whose content is already current", (t) => {
   const project = temporaryProject();
   t.after(project.clean);
