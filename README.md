@@ -42,7 +42,7 @@ You need Node.js 18 or later and npm. Run from the root of the project you want 
 npx --yes --package=github:jrcaz/groundtruth groundtruth init
 ```
 
-The package is not on npm yet. This command runs the CLI from the GitHub repository without adding it to your project's dependencies. Once published, the command becomes `npx groundtruth init`.
+The package is not on npm yet. This command runs the CLI from the GitHub repository without adding it to your project's dependencies.
 
 Here is what `init` printed for a Next.js project that uses Vitest and Playwright:
 
@@ -111,7 +111,7 @@ Run from the project root. Until the package is published, replace `groundtruth`
 
 ## What it detects
 
-`init` and `doctor` read repository files and package metadata. They recognize common JavaScript and TypeScript frameworks, Python frameworks, Flutter and React Native, Tauri, Go modules, and Rust crates. They look for test and browser tools such as Playwright, Cypress, Vitest, Jest, pytest, Maestro, and Appium, and list npm scripts that look like verification commands. In a monorepo, they also read the workspaces declared in `package.json` (npm and Yarn) or `pnpm-workspace.yaml` and list them in `PROJECT.md`.
+`init` and `doctor` read repository files and package metadata. They recognize common JavaScript and TypeScript frameworks, Python frameworks, Flutter and React Native, Tauri, Go modules, and Rust crates. They look for test and browser tools such as Playwright, Cypress, Vitest, Jest, pytest, Maestro, and Appium, and list the npm scripts. `PROJECT.md` keeps the ones that look like verification commands. In a monorepo, they also read the workspaces declared in `package.json` (npm and Yarn) or `pnpm-workspace.yaml` and list them in `PROJECT.md`.
 
 Detection reads metadata. It does not install dependencies, execute scripts, or check that a tool is configured correctly. Treat `PROJECT.md` as a draft and correct what the repository could not tell it.
 
@@ -131,7 +131,7 @@ A feature map answers one question: what can this product do right now? Each cap
 
 Links are relative to `.groundtruth/FEATURE_MAP.md`, so source and test links start with `../` and contract links with `contracts/`. A capability can link several contracts, and several capabilities can share one.
 
-`init` creates the map only when it is missing. The starter version lists candidate pages and API routes from the default Next.js, Nuxt, SvelteKit, and Astro layouts, CLI executables declared in `package.json`, and existing contracts, each marked `unconfirmed`. It does not read business logic or resolve custom routing. The `feature-map` skill does that part by inspecting the source. Two prompts cover most of the work:
+`init` creates the map only when it is missing. The starter version lists candidate pages and API routes from the default Next.js, Nuxt, SvelteKit, and Astro layouts, CLI executables declared in `package.json`, each marked `unconfirmed`. Existing contracts go in a separate list to review before you link them. It does not read business logic or resolve custom routing. The `feature-map` skill does that part by inspecting the source. Two prompts cover most of the work:
 
 ```text
 Use the feature-map skill to generate the existing application's feature map.
@@ -163,9 +163,9 @@ Write one for each capability where a silent regression would hurt, such as logi
 Projects set up by the earlier `prove` command have a `.prove/` directory, `prove` skills, and `<!-- prove:managed -->` markers. GroundTruth does not read those. To migrate:
 
 1. Rename the directory with `git mv .prove .groundtruth`, then delete `.groundtruth/.prove-managed.json`.
-2. Inside the moved files, replace `.prove/` with `.groundtruth/`. Relative source links in the feature map still work; only text that spells out the directory name changes.
-3. Delete `.claude/skills/prove/` and `.agents/skills/prove/`.
-4. Remove the section between `<!-- prove:managed:start -->` and `<!-- prove:managed:end -->` from `AGENTS.md` and `CLAUDE.md`.
+2. Inside the moved files, replace `.prove/` with `.groundtruth/` and the name "Prove" with "GroundTruth". Relative source links in the feature map still work; only text that spells out the directory or product name changes.
+3. Delete the old skills: `.claude/skills/prove/`, `.agents/skills/prove/`, `.claude/skills/feature-map/`, and `.agents/skills/feature-map/`. The old feature-map skill points agents at `.prove/`, and once the manifest is gone `update` will not replace it. Copy out any local edits first; `init` installs fresh versions.
+4. In `AGENTS.md` and `CLAUDE.md`, delete the old section, including the `<!-- prove:managed:start -->` and `<!-- prove:managed:end -->` lines.
 5. Run `groundtruth init`. It keeps your moved context, map, and contracts, installs the new skills, and adds the new section.
 
 ## Development
