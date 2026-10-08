@@ -101,7 +101,7 @@ export function migrateProject({ cwd = process.cwd(), log = console.log }: Comma
   } catch (error) {
     // migrate checks init's preconditions first, so this is rare, such as a permission error.
     if (error instanceof Error) {
-      const reason = error.message.replace(/(?:; no content was changed| No files were changed)\.$/, ".");
+      const reason = error.message.replace(/ No files were changed\.$/, "").replace(/; no content was changed\.$/, ".");
       error.message = `The Prove files were migrated, but the GroundTruth setup did not finish: ${reason} Fix the problem, then run \`groundtruth init\`.`;
     }
     throw error;
