@@ -2,7 +2,7 @@
 
 GroundTruth used to be called Prove. A project set up with `prove init` has a `.prove/` directory, `prove` skills, and a section in `AGENTS.md` and `CLAUDE.md` marked with `<!-- prove:managed:start -->` and `<!-- prove:managed:end -->`. GroundTruth does not use any of those. Running GroundTruth next to them would add a second, separate setup, so `init` and `update` refuse to run while they are present, or while a `feature-map` skill still points at `.prove/`, and `doctor` lists them.
 
-Run the commands on this page from the project root. Until the package is published, replace `groundtruth` with `npx --yes --package=github:jrcaz/groundtruth groundtruth`. Back to the [README](../README.md).
+Until the package is published, replace `groundtruth` with `npx --yes --package=github:jrcaz/groundtruth groundtruth`. Back to the [README](../README.md).
 
 From the project root, preferably with a clean Git working tree so you can review the change, run:
 
